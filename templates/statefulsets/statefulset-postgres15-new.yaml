@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: StatefulSet
+
+metadata:
+  name: {{ .Values.postgres.name }}
+  namespace: {{ .Values.namespace }}
+
+spec:
+  replicas: {{ .Values.postgres.replicaCount }}
+
+  serviceName: {{ .Values.postgres.serviceName }}
+
+  selector:
+    matchLabels:
+      service: {{ .Values.postgres.name }}
+
+  template:
+    metadata:
+      labels:
+        service: {{ .Values.postgres.name }}
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      securityContext:
+        fsGroup: {{ .Values.postgres.securityContext.fsGroup }}
+
+      ########################################################
+      # ? ONLY PVC VOLUMES (NO CONFIGMAP HERE)
+      ########################################################
+      volumes:
+        - name: postgresql-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.postgres.pvc.data }}
+
+        - name: postgresql-backups
+          persistentVolumeClaim:
+            claimName: {{ .Values.postgres.pvc.backup }}
+
+      containers:
+
+        - name: postgres15
+          image: "{{ .Values.postgres.image }}"
+          imagePullPolicy: Always
+
+          ports:
+            - name: postgredb
+              containerPort: 5432
+              protocol: TCP
+
+          resources:
+            limits:
+              cpu: {{ .Values.postgres.resources.limits.cpu }}
+              memory: {{ .Values.postgres.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.postgres.resources.requests.cpu }}
+              memory: {{ .Values.postgres.resources.requests.memory }}
+
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.postgres.envConfigMap }}
+            - secretRef:
+                name: {{ .Values.postgres.secret }}
+
+          ########################################################
+          # ? MOUNTS (ONLY DATA + BACKUPS)
+          ########################################################
+          volumeMounts:
+            - name: postgresql-data
+              mountPath: /var/lib/postgresql/data
+
+            - name: postgresql-backups
+              mountPath: /backups
+
+          ########################################################
+          # ? FORCE POSTGRES TO USE PGDATA CONFIG (CRITICAL FIX)
+          ########################################################
+          args:
+            - "-c"
+            - config_file=/var/lib/postgresql/data/pgdata/postgresql.conf
+
+            - "-c"
+            - hba_file=/var/lib/postgresql/data/pgdata/pg_hba.conf
+
+            - "-c"
+            - shared_buffers={{ .Values.postgres.tuning.shared_buffers }}
+            - "-c"
+            - work_mem={{ .Values.postgres.tuning.work_mem }}
+            - "-c"
+            - maintenance_work_mem={{ .Values.postgres.tuning.maintenance_work_mem }}
+            - "-c"
+            - effective_io_concurrency={{ .Values.postgres.tuning.effective_io_concurrency }}
+            - "-c"
+            - wal_compression=on
+            - "-c"
+            - max_wal_size={{ .Values.postgres.tuning.max_wal_size }}
+            - "-c"
+            - min_wal_size={{ .Values.postgres.tuning.min_wal_size }}
+            - "-c"
+            - log_statement=all
+            - "-c"
+            - autovacuum_max_workers={{ .Values.postgres.tuning.autovacuum_max_workers }}
+            - "-c"
+            - autovacuum_vacuum_cost_limit={{ .Values.postgres.tuning.autovacuum_vacuum_cost_limit }}
+            - "-c"
+            - idle_in_transaction_session_timeout=240s
+
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      schedulerName: default-scheduler
+
+  ########################################################
+  # ? STATEFULSET SETTINGS (UNCHANGED)
+  ########################################################
+  podManagementPolicy: OrderedReady
+
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+
+  revisionHistoryLimit: 10
+
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain

@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-app-migration
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: worker-app-migration
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      service: worker-app-migration
+
+  template:
+    metadata:
+      labels:
+        service: worker-app-migration
+
+    spec:
+      restartPolicy: Always
+
+      securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
+        fsGroup: 70070
+
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerAppMigration.pvc.static }}
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerAppMigration.pvc.templates }}
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerAppMigration.pvc.platformConfigs }}
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerAppMigration.pvc.computation }}
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerAppMigration.pvc.media }}
+
+      containers:
+        - name: rqworker
+          image: "{{ .Values.workerAppMigration.image }}"
+          imagePullPolicy: Always
+
+          securityContext:
+            runAsUser: 70070
+
+          resources:
+            limits:
+              cpu: {{ .Values.workerAppMigration.resources.limits.cpu }}
+              memory: {{ .Values.workerAppMigration.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.workerAppMigration.resources.requests.cpu }}
+              memory: {{ .Values.workerAppMigration.resources.requests.memory }}
+
+          #################################################
+          # ✅ ENVIRONMENT VARIABLES
+          #################################################
+          env:
+            - name: DATABASE_URL
+              value: "{{ .Values.workerAppMigration.databaseUrl }}"
+
+            - name: REDIS_URL
+              value: "$(REDIS_URL)"
+
+            - name: TZ
+              value: "UTC"
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.workerAppMigration.configMaps.web }}
+            - configMapRef:
+                name: {{ .Values.workerAppMigration.configMaps.postgres }}
+            - secretRef:
+                name: {{ .Values.workerAppMigration.secrets.web }}
+            - secretRef:
+                name: {{ .Values.workerAppMigration.secrets.postgres }}
+
+          #################################################
+          # ✅ VOLUME MOUNTS
+          #################################################
+          volumeMounts:
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+
+            - name: computation-storage
+              mountPath: /opt/revolutio/Computation_Temp_Storage
+
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
+
+          #################################################
+          # ✅ EXACT SAME AS OPENSHIFT
+          #################################################
+          args:
+            - /rqworker/start-app-migration
+          #################################################
+
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+
+  strategy:
+    type: RollingUpdate

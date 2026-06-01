@@ -1,0 +1,145 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: web
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      service: web
+
+  template:
+    metadata:
+      labels:
+        service: web
+
+    spec:
+      securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
+        fsGroup: 70070
+
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      volumes:
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: platform-configs-pvc-1
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.web.pvc.templates }}
+
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.web.pvc.static }}
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.web.pvc.media }}
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.web.pvc.computation }}
+
+      containers:
+        - name: web
+          image: "{{ .Values.web.image }}"
+          imagePullPolicy: Always
+
+          securityContext:
+            runAsUser: 70070
+
+          resources:
+            limits:
+              cpu: "8"
+              memory: 32Gi
+            requests:
+              cpu: "2"
+              memory: 8Gi
+
+          ports:
+            - name: uvicorn
+              containerPort: 5000
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: uvicorn
+            initialDelaySeconds: 120
+            periodSeconds: 20
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: uvicorn
+            initialDelaySeconds: 120
+            periodSeconds: 30
+
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.web.databaseUrl | quote }}
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.web.configMaps.web }}
+            - configMapRef:
+                name: {{ .Values.web.configMaps.postgres }}
+            - secretRef:
+                name: {{ .Values.web.secrets.web }}
+            - secretRef:
+                name: {{ .Values.web.secrets.postgres }}
+
+          volumeMounts:
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
+            - name: computation-storage
+              mountPath: /opt/revolutio/Computation_Temp_Storage
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+
+          ########################################################
+          # ✅ FINAL START (SCRIPT + SINGLE WORKER FIX)
+          ########################################################
+          command:
+            - /bin/bash
+          args:
+            - -c
+            - |
+              echo "====== BOOTSTRAP START ======"
+
+              # Start original script (bootstrap)
+              /Installation_ref/scripts/start &
+
+              # wait for init
+              sleep 20
+
+              echo "====== SWITCHING TO SINGLE WORKER ======"
+
+              # kill multiple workers
+              pkill -f uvicorn || true
+
+              # start single worker
+              exec uvicorn config.asgi:application \
+                --host 0.0.0.0 \
+                --port 5000 \
+                --workers 1 \
+                --lifespan off \
+                --timeout-keep-alive 60 \
+                --log-level info
+
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+
+  strategy:
+    type: RollingUpdate

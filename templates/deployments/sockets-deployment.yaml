@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sockets
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: sockets
+
+spec:
+  replicas: {{ .Values.sockets.replicaCount }}
+
+  selector:
+    matchLabels:
+      service: sockets
+
+  template:
+    metadata:
+      labels:
+        service: sockets
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      securityContext: {}
+
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.sockets.pvc.static }}
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.sockets.pvc.templates }}
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.sockets.pvc.platformConfigs }}
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.sockets.pvc.media }}
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.sockets.pvc.computation }}
+
+      containers:
+        - name: web
+          image: "{{ .Values.sockets.image }}"
+          imagePullPolicy: Always
+
+          resources:
+            limits:
+              cpu: "4"
+              memory: 16Gi
+            requests:
+              cpu: "2"
+              memory: 8Gi
+
+          ports:
+            - name: uvicorn
+              containerPort: 5000
+              protocol: TCP
+
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: uvicorn
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 30
+            periodSeconds: 240
+            successThreshold: 1
+            failureThreshold: 4
+
+          livenessProbe:
+            httpGet:
+              path: /healthy
+              port: uvicorn
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 30
+            periodSeconds: 240
+            successThreshold: 1
+            failureThreshold: 4
+
+          # ✅ FIX APPLIED HERE ONLY
+          env:
+            - name: DATABASE_URL
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.sockets.configMaps.web }}
+            - configMapRef:
+                name: {{ .Values.sockets.configMaps.postgres }}
+            - secretRef:
+                name: {{ .Values.sockets.secrets.web }}
+            - secretRef:
+                name: {{ .Values.sockets.secrets.postgres }}
+
+          volumeMounts:
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
+
+            - name: computation-storage
+              mountPath: /opt/revolutio/Computation_Temp_Storage
+
+          args:
+            - /Installation_ref/scripts/start
+
+          terminationMessagePath: /tmp/web-log
+          terminationMessagePolicy: File
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

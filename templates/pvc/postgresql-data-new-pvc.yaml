@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-data-new-pvc-11
+  namespace: myapp
+
+spec:
+  accessModes:
+    - ReadWriteOnce   # ✅ KEEP THIS
+
+  storageClassName: local-path   # ✅ KEEP THIS
+
+  resources:
+    requests:
+      storage: 5Gi
+
+  volumeMode: Filesystem

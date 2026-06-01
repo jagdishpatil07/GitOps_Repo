@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envs-production-postgres-new
+  namespace: myapp
+
+data:
+  DATABASE_TYPE: PostgreSQL
+  POSTGRES_DB: Platform_DB
+  POSTGRES_HOST: pgbouncer-service
+  POSTGRES_HOST_INNER: postgres15-new
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: revolutio

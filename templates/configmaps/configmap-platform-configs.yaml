@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-configs
+  namespace: {{ .Values.namespace }}
+data:
+{{ (.Files.Glob "Platform_Configs/*").AsConfig | indent 2 }}

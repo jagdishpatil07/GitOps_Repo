@@ -1,0 +1,456 @@
+# ============================================================
+# 🔹 GLOBAL CONFIG
+# ============================================================
+namespace: myapp
+
+global:
+  imagePullSecrets:
+    name: acr-secret   # 🔥 common for all deployments
+
+
+# ============================================================
+# 🔹 ARROWFLIGHT
+# ============================================================
+arrowflight:
+  replicaCount: 1
+  image: revolutio.azurecr.io/revolutio/arrowflight:latest
+# ============================================================
+keydb:
+  replicaCount: 1
+  image: revolutio.azurecr.io/revolutio_kubernetes/keydb:latest
+  pvcName: keydb-pvc-1
+  secretName: secrets-production-redis
+# ============================================================
+pgbouncer:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/pgbouncer:1.15.0
+
+  configMap: envs-production-postgres-new
+  secret: secrets-production-postgres-new
+#===========================================================
+redis:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/redis:latest
+
+  secretName: secrets-production-redis
+#===========================================================
+redisScheduler:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/redis:latest
+
+  secretName: secrets-production-redis
+#===========================================================
+rqscheduler:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/rqscheduler:latest
+
+  configMap: envs-production-web
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+#===========================================================
+
+sockets:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    media: media-pvc-1
+    computation: computation-storage-pvc-1
+
+#===========================================
+
+web:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  pvc:
+    templates: user-defined-template-pvc-1
+    static: static-pvc-1
+    media: media-pvc-1
+    computation: computation-storage-pvc-1
+
+#============================== 
+worker:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+  redisUrl: $(REDIS_URL)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+    media: media-pvc-1
+
+#======================================
+
+workerAlerts:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+  redisUrl: $(REDIS_URL)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+
+#=========================================
+workerComputation0:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+  redisUrl: $(REDIS_URL)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+    media: media-pvc-1
+
+#===========================================================
+workerComputation1:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+  redisUrl: $(REDIS_URL)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 50m
+      memory: 256Mi
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+    media: media-pvc-1
+#===========================================================
+workerDataUpload0:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+  redisUrl: $(REDIS_URL)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 50m
+      memory: 256Mi
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+    media: media-pvc-1
+
+#===========================================================
+workerNavbar:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+  redisUrl: $(REDIS_URL)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+    media: media-pvc-1
+
+#===========================================================
+workerScheduler:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+  redisUrl: $(REDIS_URL)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+    media: media-pvc-1
+#===========================================================
+workerSchedulerSystem:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+  redisUrl: $(REDIS_URL_SCHEDULER)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+    media: media-pvc-1
+#===========================================================
+workerTenant:
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+  redisUrl: $(REDIS_URL)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits  :
+      cpu: "1"
+      memory: 2Gi
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+    media: media-pvc-1
+#===========================================================
+postgres:
+  name: postgres15-new
+  serviceName: postgres15-new
+  replicaCount: 1
+
+  image: revolutio.azurecr.io/revolutio_kubernetes/postgres:15-bullseye
+
+  securityContext:
+    fsGroup: 1000860000
+
+  # 🔥 FIXED
+  configMap: postgres-config          # for config files
+  envConfigMap: envs-production-postgres-new   # for env vars
+  secret: secrets-production-postgres-new
+
+  pvc:
+    data: postgresql-data-new-pvc-11
+    backup: postgresql-backup-new-pvc-11
+
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      cpu: "1"
+      memory: 4Gi
+
+  tuning:
+    shared_buffers: 3GB
+    work_mem: 64MB
+    maintenance_work_mem: 1GB
+    effective_io_concurrency: 100
+    max_wal_size: 1GB
+    min_wal_size: 80MB
+    autovacuum_max_workers: 5
+    autovacuum_vacuum_cost_limit: 1000
+#===========================================================
+nginx:
+  replicaCount: 1
+  image: revolutio.azurecr.io/revolutio_kubernetes/nginx:latest
+  port: 8080
+
+  pvc:
+    media: media-pvc-1
+    static: static-pvc-1
+#===========================================================
+
+
+workerAppMigration:
+  replicaCount: 1
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+
+  databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres-new
+
+  pvc:
+    static: static-pvc-1
+    templates: user-defined-template-pvc-1
+    platformConfigs: platform-configs-pvc-1
+    computation: computation-storage-pvc-1
+    media: media-pvc-1
+
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2Gi
+    requests:
+      cpu: "500m"
+      memory: 1Gi

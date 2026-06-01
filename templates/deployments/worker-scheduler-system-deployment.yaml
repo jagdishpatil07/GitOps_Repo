@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-scheduler-system
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: worker-scheduler-system
+
+spec:
+  replicas: {{ .Values.workerSchedulerSystem.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: worker-scheduler-system
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
+  template:
+    metadata:
+      labels:
+        app: worker-scheduler-system
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      # OpenShift safe
+      securityContext: {}
+
+      containers:
+        - name: worker-scheduler-system
+          image: "{{ .Values.workerSchedulerSystem.image }}"
+          imagePullPolicy: Always
+
+          args:
+            - /rqworker/start-scheduler-system
+
+          resources:
+            requests:
+              cpu: {{ .Values.workerSchedulerSystem.resources.requests.cpu }}
+              memory: {{ .Values.workerSchedulerSystem.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.workerSchedulerSystem.resources.limits.cpu }}
+              memory: {{ .Values.workerSchedulerSystem.resources.limits.memory }}
+
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.workerSchedulerSystem.databaseUrl | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.workerSchedulerSystem.redisUrl | quote }}
+            - name: TZ
+              value: UTC
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.workerSchedulerSystem.configMaps.web }}
+            - configMapRef:
+                name: {{ .Values.workerSchedulerSystem.configMaps.postgres }}
+            - secretRef:
+                name: {{ .Values.workerSchedulerSystem.secrets.web }}
+            - secretRef:
+                name: {{ .Values.workerSchedulerSystem.secrets.postgres }}
+
+          volumeMounts:
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+            - name: computation-storage
+              mountPath: /opt/revolutio/Computation_Temp_Storage
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerSchedulerSystem.pvc.static }}
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerSchedulerSystem.pvc.templates }}
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerSchedulerSystem.pvc.platformConfigs }}
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerSchedulerSystem.pvc.computation }}
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerSchedulerSystem.pvc.media }}
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst

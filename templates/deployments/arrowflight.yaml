@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: arrowflight
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: arrowflight
+
+spec:
+  replicas: {{ .Values.arrowflight.replicaCount }}
+
+  selector:
+    matchLabels:
+      service: arrowflight
+
+  template:
+    metadata:
+      labels:
+        service: arrowflight
+
+    spec:
+      securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
+        fsGroup: 70070
+
+      imagePullSecrets:
+        - name: acr-secret
+
+      containers:
+        - name: arrowflight
+          image: "{{ .Values.arrowflight.image }}"
+          imagePullPolicy: Always
+
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

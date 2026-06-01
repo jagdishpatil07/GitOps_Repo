@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres15-new
+  namespace: {{ .Release.Namespace }}
+  labels:
+    service: postgres15-new
+
+spec:
+  selector:
+    service: postgres15-new
+
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+
+  type: ClusterIP

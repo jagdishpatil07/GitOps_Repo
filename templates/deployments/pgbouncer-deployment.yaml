@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: pgbouncer
+
+spec:
+  replicas: {{ .Values.pgbouncer.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: pgbouncer
+
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      ########################################################
+      # ✅ FORCE POSTGRES USER (YOUR CURRENT APPROACH)
+      ########################################################
+      securityContext:
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+
+      ########################################################
+      # ✅ NO VOLUME (IMPORTANT — DO NOT ADD /etc/pgbouncer mount)
+      ########################################################
+
+      containers:
+        - name: pgbouncer
+          image: "{{ .Values.pgbouncer.image }}"
+          imagePullPolicy: Always
+
+          ########################################################
+          # ✅ KEEP DEFAULT ENTRYPOINT (IMAGE WILL AUTO-GENERATE CONFIG)
+          ########################################################
+
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - "-c"
+                  - killall -INT pgbouncer && sleep 120
+
+          ########################################################
+          # ✅ SAME ENV VARIABLES (NO CHANGE)
+          ########################################################
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.pgbouncer.configMap }}
+                  key: POSTGRES_HOST_INNER
+
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pgbouncer.secret }}
+                  key: POSTGRES_PASSWORD
+
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.pgbouncer.configMap }}
+                  key: POSTGRES_USER
+
+            - name: POOL_MODE
+              value: transaction
+
+            - name: SERVER_RESET_QUERY
+              value: DISCARD ALL
+
+            - name: IGNORE_STARTUP_PARAMETERS
+              value: options
+
+            - name: MAX_CLIENT_CONN
+              value: "100"
+
+            - name: default_pool_size
+              value: "50"
+
+          ########################################################
+          # ✅ SAFE CONTAINER SECURITY
+          ########################################################
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+
+          resources: {}
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst

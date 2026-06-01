@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rqscheduler
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: rqscheduler
+
+spec:
+  replicas: {{ .Values.rqscheduler.replicaCount }}
+
+  selector:
+    matchLabels:
+      service: rqscheduler
+
+  template:
+    metadata:
+      labels:
+        service: rqscheduler
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      # ✅ OpenShift safe
+      securityContext: {}
+
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.rqscheduler.pvc.static }}
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.rqscheduler.pvc.templates }}
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.rqscheduler.pvc.platformConfigs }}
+
+      containers:
+        - name: rqscheduler
+          image: "{{ .Values.rqscheduler.image }}"
+          imagePullPolicy: Always
+
+          securityContext:
+            runAsUser: 70070
+            runAsNonRoot: true
+            fsGroup: 70070
+
+          resources: {}
+
+          env:
+            - name: TZ
+              value: UTC
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.rqscheduler.configMap }}
+
+          ports:
+            - name: rqscheduler
+              containerPort: 8899
+              protocol: TCP
+
+          volumeMounts:
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+
+          args:
+            - /app/start
+
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

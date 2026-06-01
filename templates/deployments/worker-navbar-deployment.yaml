@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-navbar
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: worker-navbar
+
+spec:
+  replicas: {{ .Values.workerNavbar.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: worker-navbar
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
+  template:
+    metadata:
+      labels:
+        app: worker-navbar
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      # OpenShift safe
+      securityContext: {}
+
+      containers:
+        - name: worker-navbar
+          image: "{{ .Values.workerNavbar.image }}"
+          imagePullPolicy: Always
+
+          args:
+            - /rqworker/start-navbar
+
+          resources:
+            requests:
+              cpu: {{ .Values.workerNavbar.resources.requests.cpu }}
+              memory: {{ .Values.workerNavbar.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.workerNavbar.resources.limits.cpu }}
+              memory: {{ .Values.workerNavbar.resources.limits.memory }}
+
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.workerNavbar.databaseUrl | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.workerNavbar.redisUrl | quote }}
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.workerNavbar.configMaps.web }}
+            - configMapRef:
+                name: {{ .Values.workerNavbar.configMaps.postgres }}
+            - secretRef:
+                name: {{ .Values.workerNavbar.secrets.web }}
+            - secretRef:
+                name: {{ .Values.workerNavbar.secrets.postgres }}
+
+          volumeMounts:
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+            - name: computation-storage
+              mountPath: /opt/revolutio/Computation_Temp_Storage
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerNavbar.pvc.static }}
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerNavbar.pvc.templates }}
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerNavbar.pvc.platformConfigs }}
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerNavbar.pvc.computation }}
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerNavbar.pvc.media }}
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst

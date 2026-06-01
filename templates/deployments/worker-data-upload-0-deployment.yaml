@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-data-upload-0
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: worker-data-upload-0
+
+spec:
+  replicas: {{ .Values.workerDataUpload0.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: worker-data-upload-0
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
+  template:
+    metadata:
+      labels:
+        app: worker-data-upload-0
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      securityContext: {}
+
+      containers:
+        - name: worker-data-upload-0
+          image: "{{ .Values.workerDataUpload0.image }}"
+          imagePullPolicy: Always
+
+          args:
+            - /rqworker/start-data-upload-0
+
+          resources:
+            requests:
+              cpu: {{ .Values.workerDataUpload0.resources.requests.cpu }}
+              memory: {{ .Values.workerDataUpload0.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.workerDataUpload0.resources.limits.cpu }}
+              memory: {{ .Values.workerDataUpload0.resources.limits.memory }}
+
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.workerDataUpload0.databaseUrl | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.workerDataUpload0.redisUrl | quote }}
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.workerDataUpload0.configMaps.web }}
+            - configMapRef:
+                name: {{ .Values.workerDataUpload0.configMaps.postgres }}
+            - secretRef:
+                name: {{ .Values.workerDataUpload0.secrets.web }}
+            - secretRef:
+                name: {{ .Values.workerDataUpload0.secrets.postgres }}
+
+          volumeMounts:
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+            - name: computation-storage
+              mountPath: /opt/revolutio/Computation_Temp_Storage
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerDataUpload0.pvc.static }}
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerDataUpload0.pvc.templates }}
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerDataUpload0.pvc.platformConfigs }}
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerDataUpload0.pvc.computation }}
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerDataUpload0.pvc.media }}
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst

@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-tenant
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: worker-tenant
+
+spec:
+  replicas: {{ .Values.workerTenant.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: worker-tenant
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
+  template:
+    metadata:
+      labels:
+        app: worker-tenant
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      securityContext: {}
+
+      containers:
+        - name: worker-tenant
+          image: "{{ .Values.workerTenant.image }}"
+          imagePullPolicy: Always
+
+          args:
+            - /rqworker/start-tenant
+
+          resources:
+            requests:
+              cpu: {{ .Values.workerTenant.resources.requests.cpu }}
+              memory: {{ .Values.workerTenant.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.workerTenant.resources.limits.cpu }}
+              memory: {{ .Values.workerTenant.resources.limits.memory }}
+
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.workerTenant.databaseUrl | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.workerTenant.redisUrl | quote }}
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.workerTenant.configMaps.web }}
+            - configMapRef:
+                name: {{ .Values.workerTenant.configMaps.postgres }}
+            - secretRef:
+                name: {{ .Values.workerTenant.secrets.web }}
+            - secretRef:
+                name: {{ .Values.workerTenant.secrets.postgres }}
+
+          volumeMounts:
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+            - name: computation-storage
+              mountPath: /opt/revolutio/Computation_Temp_Storage
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerTenant.pvc.static }}
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerTenant.pvc.templates }}
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerTenant.pvc.platformConfigs }}
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerTenant.pvc.computation }}
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.workerTenant.pvc.media }}
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst

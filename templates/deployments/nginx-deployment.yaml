@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: nginx
+
+spec:
+  replicas: {{ .Values.nginx.replicaCount }}
+
+  selector:
+    matchLabels:
+      service: nginx
+
+  template:
+    metadata:
+      labels:
+        service: nginx
+
+    spec:
+      restartPolicy: Always
+      
+
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      ########################################################
+      # SECURITY (same as working)
+      ########################################################
+      securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
+        fsGroup: 1000860000
+
+      ########################################################
+      # VOLUMES
+      ########################################################
+      volumes:
+        - name: nginx-conf-storage
+          persistentVolumeClaim:
+            claimName: nginx-conf-pvc-1
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.nginx.pvc.media }}
+
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.nginx.pvc.static }}
+
+        - name: nginx-cache
+          emptyDir: {}
+
+        - name: nginx-run
+          emptyDir: {}
+
+      ########################################################
+      # CONTAINER
+      ########################################################
+      containers:
+        - name: nginx
+          image: "{{ .Values.nginx.image }}"
+          imagePullPolicy: Always
+
+          securityContext:
+            runAsUser: 70070
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          ########################################################
+          # MOUNTS (IMPORTANT)
+          ########################################################
+          volumeMounts:
+            - name: nginx-conf-storage
+              mountPath: /etc/nginx/
+
+            - name: media-storage
+              mountPath: /var/www/revolutio/media
+
+            - name: static-storage
+              mountPath: /var/www/revolutio/static
+
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+
+            - name: nginx-run
+              mountPath: /var/run
+
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+
+      dnsPolicy: ClusterFirst
+      terminationGracePeriodSeconds: 30
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-backup-new-pvc-11
+  namespace: myapp
+
+spec:
+  accessModes:
+    - ReadWriteMany
+
+  storageClassName: ""
+
+  volumeName: postgresql-backup-new-pv-11   # ✅ STRICT BINDING
+
+  resources:
+    requests:
+      storage: 5Gi
+
+  volumeMode: Filesystem

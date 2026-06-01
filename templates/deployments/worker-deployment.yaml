@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: worker
+
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+
+  selector:
+    matchLabels:
+      service: worker
+
+  template:
+    metadata:
+      labels:
+        service: worker
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      # ✅ OpenShift safe
+      securityContext: {}
+
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.worker.pvc.static }}
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.worker.pvc.templates }}
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.worker.pvc.platformConfigs }}
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.worker.pvc.computation }}
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.worker.pvc.media }}
+
+      containers:
+        - name: rqworker
+          image: "{{ .Values.worker.image }}"
+          imagePullPolicy: Always
+
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2Gi
+            requests:
+              cpu: "500m"
+              memory: 1Gi
+
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.worker.databaseUrl | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.worker.redisUrl | quote }}
+            - name: TZ
+              value: UTC
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.worker.configMaps.web }}
+            - configMapRef:
+                name: {{ .Values.worker.configMaps.postgres }}
+            - secretRef:
+                name: {{ .Values.worker.secrets.web }}
+            - secretRef:
+                name: {{ .Values.worker.secrets.postgres }}
+
+          volumeMounts:
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+
+            - name: computation-storage
+              mountPath: /opt/revolutio/Computation_Temp_Storage
+
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
+
+          args:
+            - /rqworker/start
+
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

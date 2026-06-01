@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keydb
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: keydb
+
+spec:
+  replicas: {{ .Values.keydb.replicaCount }}
+
+  selector:
+    matchLabels:
+      service: keydb
+
+  template:
+    metadata:
+      labels:
+        service: keydb
+
+    spec:
+      # ✅ Recommended (important for permissions)
+      securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
+        fsGroup: 70070
+
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      volumes:
+        - name: keydb-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.keydb.pvcName }}
+
+      containers:
+        - name: keydb
+          image: "{{ .Values.keydb.image }}"
+          imagePullPolicy: Always
+
+          command:
+            - keydb-server
+
+          args:
+            - "--requirepass"
+            - "$(KEYDB_PASSWORD)"
+            - "--dir"
+            - "/data"
+
+          # ✅ Secret injection
+          envFrom:
+            - secretRef:
+                name: {{ .Values.keydb.secretName }}
+
+          # ✅ CRITICAL (your fix — required)
+          env:
+            - name: KEYDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keydb.secretName }}
+                  key: KEYDB_PASSWORD
+
+          volumeMounts:
+            - name: keydb-data
+              mountPath: /data
+
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

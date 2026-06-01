@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: platform-configs-pv-1
+
+spec:
+  capacity:
+    storage: 5Gi
+
+  accessModes:
+    - ReadWriteMany
+
+  persistentVolumeReclaimPolicy: Retain
+
+  storageClassName: ""
+
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/platform-configs-pvc-1
+
+  volumeMode: Filesystem

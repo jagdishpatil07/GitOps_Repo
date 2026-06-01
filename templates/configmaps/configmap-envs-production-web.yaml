@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envs-production-web
+  namespace: myapp
+
+data:
+  CDN_CUSTOM_DOMAIN: ''
+  REDIS_PORT_SCHEDULER: '6379'
+  MPLCONFIGDIR: /opt/temp
+  DJANGO_SETTINGS_MODULE: config.settings.local
+  DJANGO_ACCOUNT_ALLOW_REGISTRATION: 'true'
+  REDIS_PORT: '6379'
+  PORT_NUMBER: '443'
+
+  REDIS_URL_SCHEDULER: 'redis://:redisschedulersecretpassword@redis-scheduler:6379/0'
+  REDIS_HOST_SCHEDULER: redis-scheduler
+
+  WEB_CONCURRENCY: '4'
+
+  # ✅ FIXED (ONLY CHANGE)
+  CSRF_TRUSTED_ORIGINS: 'http://40.81.244.162,https://40.81.244.162'
+  CORS_ALLOWED_ORIGINS: 'http://40.81.244.162,https://40.81.244.162'
+  REDIS_URL: 'redis://:redissecretpassword@redis:6379/0'
+  CLEAR_CACHE_ON_STARTUP: 'true'
+  REDIS_HOST: redis
+  FILE_NAME: /etc/nginx/nginx.conf
+  SCHEDULER_AUTOSTART: 'true'
+  CDN_CUSTOM_LOCATION: static
+  DJANGO_SESSION_COOKIE_AGE: '86400'
+  OPERATION_TYPE: application_run
+  DJANGO_SECURE_SSL_REDIRECT: 'no'
+  DJANGO_SUPERUSER_USERNAME: revolutio_admin
+  KUBERNETES_ENV: 'true'
+  NUMBA_CACHE_DIR: /temp
+  REDIS_CACHE_LOCATION: 'redis://:rediskeydbsecretpassword@keydb:6379'
+  COMPUTATION_QUEUES: '2'
+  PLATFORM_DOMAIN_NAME: revolutio.digital
+  DJANGO_ADMIN_URL: nxB0AWFHi204T2g7VxhVxJ5UYKMBQIjl/
+  REDIS_PASSWORD_SCHEDULER: redisschedulersecretpassword
+  KEYDB_PASSWORD: rediskeydbsecretpassword
+  REDIS_PASSWORD: redissecretpassword
+  ACCOUNT_DEFAULT_HTTP_PROTOCOL: https
+  DJANGO_SUPERUSER_EMAIL: contact@acies.holdings
+  CORS_ALLOWED_ORIGIN_REGEXES: '^https://\w+\.omantel\.om$'
+  ALLOWED_HOSTS: "*"
+  DJANGO_SESSION_COOKIE_SAMESITE: "Lax"
+  FERNET_SECRET: "IozSZydaPuzwwHunI_SuUP31g9UP0oCjvQn9mrs"
+
+  
+  # ✅ FIXED (Optional)
+  #DJANGO_ALLOWED_HOSTS: '*'
+  #POSTGRES_HOST: pgbouncer1-new
+  #POSTGRES_DB: Platform_DB
+  #POSTGRES_USER: revolutio
+  #POSTGRES_PORT: '5432'
+  #DATABASE_TYPE: PostgreSQL
+

@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-scheduler
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: redis-scheduler
+
+spec:
+  replicas: {{ .Values.redisScheduler.replicaCount }}
+
+  selector:
+    matchLabels:
+      service: redis-scheduler
+
+  template:
+    metadata:
+      labels:
+        service: redis-scheduler
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      securityContext: {}
+
+      containers:
+        - name: redis-scheduler
+          image: "{{ .Values.redisScheduler.image }}"
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - redis-server
+
+          args:
+            - "--requirepass"
+            - "$(REDIS_PASSWORD_SCHEDULER)"
+            - "--save"
+            - ""
+            - "--appendonly"
+            - "no"
+
+          envFrom:
+            - secretRef:
+                name: {{ .Values.redisScheduler.secretName }}
+
+          env:
+            - name: TZ
+              value: UTC
+            - name: REDIS_PASSWORD_SCHEDULER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redisScheduler.secretName }}
+                  key: REDIS_PASSWORD_SCHEDULER
+
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+
+  strategy:
+    type: RollingUpdate
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
