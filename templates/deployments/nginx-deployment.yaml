@@ -33,7 +33,7 @@ spec:
         fsGroup: 1000860000
 
       ########################################################
-      # ✅ INIT CONTAINER (FINAL FIXED)
+      # ✅ INIT CONTAINER (FINAL)
       ########################################################
       initContainers:
         - name: init-nginx-config
@@ -46,7 +46,7 @@ spec:
               echo "Cloning repo into /tmp..."
               git clone --depth=1 https://github.com/jagdishpatil07/GitOps_Repo.git /tmp/repo
 
-              echo "Checking repo files..."
+              echo "Checking repo contents..."
               ls -R /tmp/repo
 
               echo "Preparing nginx directory..."
@@ -56,7 +56,7 @@ spec:
               rm -f /nginx/nginx.conf || true
               rm -f /nginx/mime.types || true
 
-              echo "Copying files..."
+              echo "Copying nginx configs..."
 
               cp -v /tmp/repo/FILES/nginx/nginx.conf /nginx/nginx.conf
               cp -v /tmp/repo/FILES/nginx/mime.types /nginx/mime.types
@@ -65,7 +65,7 @@ spec:
               echo "Final nginx files:"
               ls -l /nginx
 
-              echo "✅ Init container completed"
+              echo "✅ Init container completed successfully"
 
           volumeMounts:
             - name: nginx-conf-storage
@@ -94,7 +94,7 @@ spec:
           emptyDir: {}
 
       ########################################################
-      # MAIN CONTAINER
+      # MAIN NGINX CONTAINER
       ########################################################
       containers:
         - name: nginx
@@ -106,3 +106,39 @@ spec:
 
           ports:
             - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          ########################################################
+          # VOLUME MOUNTS
+          ########################################################
+          volumeMounts:
+            - name: nginx-conf-storage
+              mountPath: /etc/nginx/
+
+            - name: media-storage
+              mountPath: /var/www/revolutio/media
+
+            - name: static-storage
+              mountPath: /var/www/revolutio/static
+
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+
+            - name: nginx-run
+              mountPath: /var/run
+
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+
+      dnsPolicy: ClusterFirst
+      terminationGracePeriodSeconds: 30
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
