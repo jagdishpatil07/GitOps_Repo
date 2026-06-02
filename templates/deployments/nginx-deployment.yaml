@@ -24,11 +24,17 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
+      ########################################################
+      # SECURITY
+      ########################################################
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
         fsGroup: 1000860000
 
+      ########################################################
+      # VOLUMES
+      ########################################################
       volumes:
         - name: nginx-conf-storage
           persistentVolumeClaim:
@@ -52,6 +58,9 @@ spec:
         - name: nginx-run
           emptyDir: {}
 
+      ########################################################
+      # CONTAINER
+      ########################################################
       containers:
         - name: nginx
           image: "{{ .Values.nginx.image }}"
@@ -65,6 +74,9 @@ spec:
               containerPort: 8080
               protocol: TCP
 
+          ########################################################
+          # VOLUME MOUNTS (FINAL CORRECT)
+          ########################################################
           volumeMounts:
             - name: nginx-conf-storage
               mountPath: /etc/nginx/
@@ -76,6 +88,10 @@ spec:
             - name: nginx-config-cm
               mountPath: /etc/nginx/mime.types
               subPath: mime.types
+
+            - name: nginx-config-cm
+              mountPath: /etc/nginx/conf.d/blockuseragents.rules
+              subPath: blockuseragents.rules
 
             - name: media-storage
               mountPath: /var/www/revolutio/media
@@ -95,6 +111,9 @@ spec:
       dnsPolicy: ClusterFirst
       terminationGracePeriodSeconds: 30
 
+  ########################################################
+  # STRATEGY
+  ########################################################
   strategy:
     type: RollingUpdate
     rollingUpdate:
