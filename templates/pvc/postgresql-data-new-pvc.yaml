@@ -6,12 +6,11 @@ metadata:
 
 spec:
   accessModes:
-    - ReadWriteOnce   # ✅ KEEP THIS
-
-  storageClassName: local-path   # ✅ KEEP THIS
+    - ReadWriteOnce
 
   resources:
     requests:
       storage: 5Gi
 
-  volumeMode: Filesystem
+  volumeName: postgresql-nfs-pv
+  storageClassName: ""
