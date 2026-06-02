@@ -17,43 +17,40 @@ spec:
           - |
             set -e
 
-            echo "🔹 Copying nginx configs..."
+            echo "Copying nginx configs..."
             mkdir -p /nginx/conf.d
             cp -f /src/nginx.conf /nginx/nginx.conf
             cp -f /src/mime.types /nginx/mime.types
             cp -f /src/blockuseragents.rules /nginx/conf.d/blockuseragents.rules
 
-            echo "🔹 Copying platform configs..."
+            echo "Copying platform configs..."
             mkdir -p /platform
             cp -f /src/*.json /platform/ || true
             cp -f /src/allowed_host.txt /platform/ || true
 
-            echo "🔹 Copying postgres configs..."
+            echo "Copying postgres configs..."
             mkdir -p /postgres/pgdata
             cp -f /src/postgresql.conf /postgres/pgdata/postgresql.conf
             cp -f /src/pg_hba.conf /postgres/pgdata/pg_hba.conf
 
-            echo "✅ All files copied successfully"
+            echo "All files copied successfully"
 
-            # optional debug
-            echo "🔍 Listing nginx dir:"
+            echo "Listing nginx dir:"
             ls -l /nginx
 
-            echo "🔍 Listing platform dir:"
+            echo "Listing platform dir:"
             ls -l /platform
 
-            echo "🔍 Listing postgres dir:"
+            echo "Listing postgres dir:"
             ls -l /postgres/pgdata
 
             sleep 5
 
         volumeMounts:
 
-        # ✅ FILE SOURCE (ConfigMap from Helm)
         - name: files
           mountPath: /src
 
-        # ✅ TARGET PVCs
         - name: nginx-pvc
           mountPath: /nginx
 
@@ -80,4 +77,3 @@ spec:
       - name: postgres-pvc
         persistentVolumeClaim:
           claimName: postgresql-data-new-pvc-11
-``
