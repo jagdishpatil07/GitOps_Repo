@@ -49,7 +49,7 @@ data:
 
   
   # ✅ FIXED (Optional)
-  #DJANGO_ALLOWED_HOSTS: '*'
+  DJANGO_ALLOWED_HOSTS: '*'
   #POSTGRES_HOST: pgbouncer1-new
   #POSTGRES_DB: Platform_DB
   #POSTGRES_USER: revolutio
