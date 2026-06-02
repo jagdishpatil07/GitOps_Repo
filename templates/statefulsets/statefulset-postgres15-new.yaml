@@ -27,7 +27,7 @@ spec:
         fsGroup: {{ .Values.postgres.securityContext.fsGroup }}
 
       ########################################################
-      # ? ONLY PVC VOLUMES (NO CONFIGMAP HERE)
+      # ✅ VOLUMES (ADDED CONFIGMAP ONLY)
       ########################################################
       volumes:
         - name: postgresql-data
@@ -38,6 +38,14 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.postgres.pvc.backup }}
 
+        # ✅ NEW (CONFIGMAP)
+        - name: postgres-config
+          configMap:
+            name: postgres-config-files
+
+      ########################################################
+      # CONTAINER
+      ########################################################
       containers:
 
         - name: postgres15
@@ -68,7 +76,7 @@ spec:
                 name: {{ .Values.postgres.secret }}
 
           ########################################################
-          # ? MOUNTS (ONLY DATA + BACKUPS)
+          # ✅ MOUNTS (ONLY ADD CONFIG FILES)
           ########################################################
           volumeMounts:
             - name: postgresql-data
@@ -77,8 +85,17 @@ spec:
             - name: postgresql-backups
               mountPath: /backups
 
+            # ✅ NEW (SAFE FILE OVERRIDE)
+            - name: postgres-config
+              mountPath: /var/lib/postgresql/data/pgdata/pg_hba.conf
+              subPath: pg_hba.conf
+
+            - name: postgres-config
+              mountPath: /var/lib/postgresql/data/pgdata/postgresql.conf
+              subPath: postgresql.conf
+
           ########################################################
-          # ? FORCE POSTGRES TO USE PGDATA CONFIG (CRITICAL FIX)
+          # ✅ KEEP YOUR EXISTING ARGS (UNCHANGED)
           ########################################################
           args:
             - "-c"
@@ -119,7 +136,7 @@ spec:
       schedulerName: default-scheduler
 
   ########################################################
-  # ? STATEFULSET SETTINGS (UNCHANGED)
+  # STATEFULSET SETTINGS (UNCHANGED)
   ########################################################
   podManagementPolicy: OrderedReady
 
