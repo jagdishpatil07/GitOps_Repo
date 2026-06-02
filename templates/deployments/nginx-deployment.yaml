@@ -25,7 +25,7 @@ spec:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
       ########################################################
-      # SECURITY (same as working)
+      # SECURITY
       ########################################################
       securityContext:
         runAsUser: 70070
@@ -33,7 +33,7 @@ spec:
         fsGroup: 1000860000
 
       ########################################################
-      # ✅ INIT CONTAINER (ADDED ONLY THIS)
+      # ✅ INIT CONTAINER (FINAL FIXED)
       ########################################################
       initContainers:
         - name: init-nginx-config
@@ -43,26 +43,27 @@ spec:
             - |
               set -e
 
-              echo "Cloning repo..."
-              git clone https://github.com/jagdishpatil07/GitOps_Repo.git /repo
+              echo "Cloning repo into /tmp..."
+              git clone --depth=1 https://github.com/jagdishpatil07/GitOps_Repo.git /tmp/repo
 
-              echo "Checking files..."
-              ls -R /repo/FILES
+              echo "Checking repo files..."
+              ls -R /tmp/repo
 
               echo "Preparing nginx directory..."
               mkdir -p /nginx/conf.d
 
-              echo "Cleaning old configs..."
+              echo "Cleaning old files..."
               rm -f /nginx/nginx.conf || true
               rm -f /nginx/mime.types || true
 
-              echo "Copying configs..."
-              cp -v /repo/FILES/nginx/nginx.conf /nginx/nginx.conf
-              cp -v /repo/FILES/nginx/mime.types /nginx/mime.types
-              cp -v /repo/FILES/nginx/blockuseragents.rules /nginx/conf.d/blockuseragents.rules || true
+              echo "Copying files..."
+
+              cp -v /tmp/repo/FILES/nginx/nginx.conf /nginx/nginx.conf
+              cp -v /tmp/repo/FILES/nginx/mime.types /nginx/mime.types
+              cp -v /tmp/repo/FILES/nginx/blockuseragents.rules /nginx/conf.d/ 2>/dev/null || true
 
               echo "Final nginx files:"
-              ls -R /nginx
+              ls -l /nginx
 
               echo "✅ Init container completed"
 
@@ -105,39 +106,3 @@ spec:
 
           ports:
             - name: http
-              containerPort: 8080
-              protocol: TCP
-
-          ########################################################
-          # MOUNTS (IMPORTANT)
-          ########################################################
-          volumeMounts:
-            - name: nginx-conf-storage
-              mountPath: /etc/nginx/
-
-            - name: media-storage
-              mountPath: /var/www/revolutio/media
-
-            - name: static-storage
-              mountPath: /var/www/revolutio/static
-
-            - name: nginx-cache
-              mountPath: /var/cache/nginx
-
-            - name: nginx-run
-              mountPath: /var/run
-
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-
-      dnsPolicy: ClusterFirst
-      terminationGracePeriodSeconds: 30
-
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
-
-  revisionHistoryLimit: 10
-  progressDeadlineSeconds: 600
