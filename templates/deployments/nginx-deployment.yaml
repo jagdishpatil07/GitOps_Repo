@@ -33,51 +33,16 @@ spec:
         fsGroup: 1000860000
 
       ########################################################
-      # ✅ INIT CONTAINER (FINAL)
-      ########################################################
-      initContainers:
-        - name: init-nginx-config
-          image: alpine/git
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              set -e
-
-              echo "Cloning repo into /tmp..."
-              git clone --depth=1 https://github.com/jagdishpatil07/GitOps_Repo.git /tmp/repo
-
-              echo "Checking repo contents..."
-              ls -R /tmp/repo
-
-              echo "Preparing nginx directory..."
-              mkdir -p /nginx/conf.d
-
-              echo "Cleaning old files..."
-              rm -f /nginx/nginx.conf || true
-              rm -f /nginx/mime.types || true
-
-              echo "Copying nginx configs..."
-
-              cp -v /tmp/repo/FILES/nginx/nginx.conf /nginx/nginx.conf
-              cp -v /tmp/repo/FILES/nginx/mime.types /nginx/mime.types
-              cp -v /tmp/repo/FILES/nginx/blockuseragents.rules /nginx/conf.d/ 2>/dev/null || true
-
-              echo "Final nginx files:"
-              ls -l /nginx
-
-              echo "✅ Init container completed successfully"
-
-          volumeMounts:
-            - name: nginx-conf-storage
-              mountPath: /nginx
-
-      ########################################################
       # VOLUMES
       ########################################################
       volumes:
         - name: nginx-conf-storage
           persistentVolumeClaim:
             claimName: nginx-conf-pvc-1
+
+        - name: nginx-config-cm
+          configMap:
+            name: nginx-config
 
         - name: media-storage
           persistentVolumeClaim:
@@ -94,7 +59,7 @@ spec:
           emptyDir: {}
 
       ########################################################
-      # MAIN NGINX CONTAINER
+      # NGINX CONTAINER
       ########################################################
       containers:
         - name: nginx
@@ -113,8 +78,18 @@ spec:
           # VOLUME MOUNTS
           ########################################################
           volumeMounts:
+            # ✅ Existing PVC mount
             - name: nginx-conf-storage
               mountPath: /etc/nginx/
+
+            # ✅ ConfigMap override (IMPORTANT)
+            - name: nginx-config-cm
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+
+            - name: nginx-config-cm
+              mountPath: /etc/nginx/mime.types
+              subPath: mime.types
 
             - name: media-storage
               mountPath: /var/www/revolutio/media
@@ -142,3 +117,4 @@ spec:
 
   revisionHistoryLimit: 10
   progressDeadlineSeconds: 600
+``
