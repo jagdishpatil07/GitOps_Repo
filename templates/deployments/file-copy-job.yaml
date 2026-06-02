@@ -23,10 +23,17 @@ spec:
             cd /repo/FILES
 
             ###################################
-            # NGINX FILES
+            # NGINX FILES (CLEAN + CORRECT)
             ###################################
             echo "Copying nginx configs..."
+
+            # Clean wrong/old files
+            rm -f /nginx/blockuseragents.rules || true
+            rm -f /nginx/*.bkp || true
+
             mkdir -p /nginx/conf.d
+
+            # Copy correctly
             cp -f nginx/nginx.conf /nginx/nginx.conf
             cp -f nginx/mime.types /nginx/mime.types
             cp -f nginx/blockuseragents.rules /nginx/conf.d/blockuseragents.rules
@@ -35,32 +42,39 @@ spec:
             # PLATFORM CONFIGS
             ###################################
             echo "Copying platform configs..."
+
             mkdir -p /platform
+
             cp -f platform/*.json /platform/ || true
             cp -f platform/allowed_host.txt /platform/ || true
 
             ###################################
-            # POSTGRES CONFIGS
+            # POSTGRES CONFIGS (SAFE + EXACT)
             ###################################
             echo "Copying postgres configs..."
-            mkdir -p /postgres/pgdata
 
-            cp -f postgres/postgresql.conf /postgres/pgdata/postgresql.conf
-            cp -f postgres/pg_hba.conf /postgres/pgdata/pg_hba.conf
+            PGDATA="/postgres/pgdata"
 
-            chmod 600 /postgres/pgdata/* || true
+            mkdir -p $PGDATA
+
+            # ONLY replace config files (do NOT touch data dirs)
+            cp -f postgres/postgresql.conf $PGDATA/postgresql.conf
+            cp -f postgres/pg_hba.conf $PGDATA/pg_hba.conf
+
+            chmod 600 $PGDATA/postgresql.conf || true
+            chmod 600 $PGDATA/pg_hba.conf || true
 
             ###################################
             # DEBUG
             ###################################
-            echo "NGINX FILES:"
-            ls -l /nginx
+            echo "NGINX STRUCTURE:"
+            ls -R /nginx
 
-            echo "PLATFORM FILES:"
+            echo "PLATFORM STRUCTURE:"
             ls -l /platform
 
-            echo "POSTGRES FILES:"
-            ls -l /postgres/pgdata
+            echo "POSTGRES STRUCTURE:"
+            ls -l $PGDATA
 
             echo "File copy completed successfully"
 
