@@ -27,7 +27,7 @@ spec:
         fsGroup: {{ .Values.postgres.securityContext.fsGroup }}
 
       ########################################################
-      # ✅ VOLUMES (ADDED CONFIGMAP ONLY)
+      # ✅ VOLUMES (PVC + CONFIGMAP ONLY)
       ########################################################
       volumes:
         - name: postgresql-data
@@ -38,13 +38,40 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.postgres.pvc.backup }}
 
-        # ✅ NEW (CONFIGMAP)
         - name: postgres-config
           configMap:
             name: postgres-config-files
 
       ########################################################
-      # CONTAINER
+      # ✅ INIT CONTAINER (COPY CONFIG → PVC)
+      ########################################################
+      initContainers:
+        - name: init-postgres-config
+          image: busybox
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+
+              echo "Copying config to PGDATA..."
+
+              cp /config/pg_hba.conf /pgdata/pgdata/pg_hba.conf
+              cp /config/postgresql.conf /pgdata/pgdata/postgresql.conf
+
+              chmod 600 /pgdata/pgdata/pg_hba.conf
+              chmod 600 /pgdata/pgdata/postgresql.conf
+
+              echo "✅ Config copied successfully"
+
+          volumeMounts:
+            - name: postgres-config
+              mountPath: /config
+
+            - name: postgresql-data
+              mountPath: /pgdata
+
+      ########################################################
+      # ✅ MAIN CONTAINER (UNCHANGED LOGIC)
       ########################################################
       containers:
 
@@ -76,7 +103,7 @@ spec:
                 name: {{ .Values.postgres.secret }}
 
           ########################################################
-          # ✅ MOUNTS (ONLY ADD CONFIG FILES)
+          # ✅ MOUNTS (ONLY PVC + BACKUPS)
           ########################################################
           volumeMounts:
             - name: postgresql-data
@@ -85,17 +112,8 @@ spec:
             - name: postgresql-backups
               mountPath: /backups
 
-            # ✅ NEW (SAFE FILE OVERRIDE)
-            - name: postgres-config
-              mountPath: /var/lib/postgresql/data/pgdata/pg_hba.conf
-              subPath: pg_hba.conf
-
-            - name: postgres-config
-              mountPath: /var/lib/postgresql/data/pgdata/postgresql.conf
-              subPath: postgresql.conf
-
           ########################################################
-          # ✅ KEEP YOUR EXISTING ARGS (UNCHANGED)
+          # ✅ KEEP YOUR EXISTING ARGS
           ########################################################
           args:
             - "-c"
@@ -136,7 +154,7 @@ spec:
       schedulerName: default-scheduler
 
   ########################################################
-  # STATEFULSET SETTINGS (UNCHANGED)
+  # ✅ STATEFULSET SETTINGS (UNCHANGED)
   ########################################################
   podManagementPolicy: OrderedReady
 
