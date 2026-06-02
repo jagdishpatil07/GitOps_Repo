@@ -24,17 +24,11 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
-      ########################################################
-      # SECURITY
-      ########################################################
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
         fsGroup: 1000860000
 
-      ########################################################
-      # VOLUMES
-      ########################################################
       volumes:
         - name: nginx-conf-storage
           persistentVolumeClaim:
@@ -58,9 +52,6 @@ spec:
         - name: nginx-run
           emptyDir: {}
 
-      ########################################################
-      # NGINX CONTAINER
-      ########################################################
       containers:
         - name: nginx
           image: "{{ .Values.nginx.image }}"
@@ -74,15 +65,10 @@ spec:
               containerPort: 8080
               protocol: TCP
 
-          ########################################################
-          # VOLUME MOUNTS
-          ########################################################
           volumeMounts:
-            # ✅ Existing PVC mount
             - name: nginx-conf-storage
               mountPath: /etc/nginx/
 
-            # ✅ ConfigMap override (IMPORTANT)
             - name: nginx-config-cm
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
@@ -117,4 +103,3 @@ spec:
 
   revisionHistoryLimit: 10
   progressDeadlineSeconds: 600
-``
