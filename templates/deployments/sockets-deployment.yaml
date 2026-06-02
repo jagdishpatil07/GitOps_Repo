@@ -22,7 +22,10 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
-      securityContext: {}
+      securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
+        fsGroup: 70070
 
       volumes:
         - name: static-storage
@@ -46,9 +49,12 @@ spec:
             claimName: {{ .Values.sockets.pvc.computation }}
 
       containers:
-        - name: web
+        - name: sockets
           image: "{{ .Values.sockets.image }}"
           imagePullPolicy: Always
+
+          securityContext:
+            runAsUser: 70070
 
           resources:
             limits:
@@ -61,31 +67,21 @@ spec:
           ports:
             - name: uvicorn
               containerPort: 5000
-              protocol: TCP
 
           readinessProbe:
             httpGet:
               path: /readiness
               port: uvicorn
-              scheme: HTTP
             initialDelaySeconds: 120
-            timeoutSeconds: 30
-            periodSeconds: 240
-            successThreshold: 1
-            failureThreshold: 4
+            periodSeconds: 20
 
           livenessProbe:
             httpGet:
               path: /healthy
               port: uvicorn
-              scheme: HTTP
             initialDelaySeconds: 120
-            timeoutSeconds: 30
-            periodSeconds: 240
-            successThreshold: 1
-            failureThreshold: 4
+            periodSeconds: 30
 
-          # ✅ FIX APPLIED HERE ONLY
           env:
             - name: DATABASE_URL
               value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
@@ -116,11 +112,35 @@ spec:
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
 
+          ########################################################
+          # ✅ SINGLE WORKER FIX (SAME AS WEB)
+          ########################################################
+          command:
+            - /bin/sh
           args:
-            - /Installation_ref/scripts/start
+            - -c
+            - |
+              echo "====== SOCKETS BOOTSTRAP START ======"
 
-          terminationMessagePath: /tmp/web-log
-          terminationMessagePolicy: File
+              # Start original bootstrap script
+              /Installation_ref/scripts/start &
+
+              # Wait for initialization
+              sleep 20
+
+              echo "====== SWITCHING TO SINGLE WORKER ======"
+
+              # Kill existing multi-workers
+              pkill -f uvicorn || true
+
+              # Start single worker
+              exec uvicorn config.asgi:application \
+                --host 0.0.0.0 \
+                --port 5000 \
+                --workers 1 \
+                --lifespan off \
+                --timeout-keep-alive 60 \
+                --log-level info
 
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
@@ -128,9 +148,3 @@ spec:
 
   strategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
-
-  revisionHistoryLimit: 10
-  progressDeadlineSeconds: 600
