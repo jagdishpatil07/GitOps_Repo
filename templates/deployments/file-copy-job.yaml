@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-file-copy
+  namespace: {{ .Values.namespace }}
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+
+      containers:
+      - name: copy
+        image: busybox
+        command: ["/bin/sh","-c"]
+
+        args:
+          - |
+            echo "Copying nginx configs..."
+            cp /src/nginx.conf /nginx/
+            cp /src/mime.types /nginx/
+            mkdir -p /nginx/conf.d
+            cp /src/blockuseragents.rules /nginx/conf.d/
+
+            echo "Copying platform configs..."
+            cp /src/*.json /platform/
+            cp /src/allowed_host.txt /platform/
+
+            echo "Copying postgres configs..."
+            cp /src/postgresql.conf /postgres/
+            cp /src/pg_hba.conf /postgres/
+
+            echo "✅ All files copied"
+            sleep 5
+
+        volumeMounts:
+        - name: files
+          mountPath: /src
+
+        - name: nginx-pvc
+          mountPath: /nginx
+
+        - name: platform-pvc
+          mountPath: /platform
+
+        - name: postgres-pvc
+          mountPath: /postgres
+
+      volumes:
+      - name: files
+        configMap:
+          name: app-files
+
+      - name: nginx-pvc
+        persistentVolumeClaim:
+          claimName: nginx-conf-pvc-1
+
+      - name: platform-pvc
+        persistentVolumeClaim:
+          claimName: platform-configs-pvc-1
+
+      - name: postgres-pvc
+        persistentVolumeClaim:
+          claimName: postgresql-data-new-pvc-11
