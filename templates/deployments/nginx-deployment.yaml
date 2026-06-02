@@ -20,7 +20,6 @@ spec:
 
     spec:
       restartPolicy: Always
-      
 
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
@@ -32,6 +31,44 @@ spec:
         runAsUser: 70070
         runAsNonRoot: true
         fsGroup: 1000860000
+
+      ########################################################
+      # ✅ INIT CONTAINER (ADDED ONLY THIS)
+      ########################################################
+      initContainers:
+        - name: init-nginx-config
+          image: alpine/git
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+
+              echo "Cloning repo..."
+              git clone https://github.com/jagdishpatil07/GitOps_Repo.git /repo
+
+              echo "Checking files..."
+              ls -R /repo/FILES
+
+              echo "Preparing nginx directory..."
+              mkdir -p /nginx/conf.d
+
+              echo "Cleaning old configs..."
+              rm -f /nginx/nginx.conf || true
+              rm -f /nginx/mime.types || true
+
+              echo "Copying configs..."
+              cp -v /repo/FILES/nginx/nginx.conf /nginx/nginx.conf
+              cp -v /repo/FILES/nginx/mime.types /nginx/mime.types
+              cp -v /repo/FILES/nginx/blockuseragents.rules /nginx/conf.d/blockuseragents.rules || true
+
+              echo "Final nginx files:"
+              ls -R /nginx
+
+              echo "✅ Init container completed"
+
+          volumeMounts:
+            - name: nginx-conf-storage
+              mountPath: /nginx
 
       ########################################################
       # VOLUMES
@@ -56,7 +93,7 @@ spec:
           emptyDir: {}
 
       ########################################################
-      # CONTAINER
+      # MAIN CONTAINER
       ########################################################
       containers:
         - name: nginx
