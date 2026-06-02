@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-files
+  namespace: {{ .Values.namespace }}
+data:
+  nginx.conf: {{ .Files.Get "FILES/nginx/nginx.conf" | quote }}
+  mime.types: {{ .Files.Get "FILES/nginx/mime.types" | quote }}
+  blockuseragents.rules: {{ .Files.Get "FILES/nginx/blockuseragents.rules" | quote }}
+
+  tenant_database_mapping.json: {{ .Files.Get "FILES/platform/tenant_database_mapping.json" | quote }}
+  tenant_host_mapping.json: {{ .Files.Get "FILES/platform/tenant_host_mapping.json" | quote }}
+  allowed_domains.json: {{ .Files.Get "FILES/platform/allowed_domains.json" | quote }}
+  app_database_mapping.json: {{ .Files.Get "FILES/platform/app_database_mapping.json" | quote }}
+  allowed_host.txt: {{ .Files.Get "FILES/platform/allowed_host.txt" | quote }}
+  user_databases.json: {{ .Files.Get "FILES/platform/user_databases.json" | quote }}
+  user_databases_updation.json: {{ .Files.Get "FILES/platform/user_databases_updation.json" | quote }}
+
+  postgresql.conf: {{ .Files.Get "FILES/postgres/postgresql.conf" | quote }}
+  pg_hba.conf: {{ .Files.Get "FILES/postgres/pg_hba.conf" | quote }}
