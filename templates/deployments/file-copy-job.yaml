@@ -15,27 +15,45 @@ spec:
 
         args:
           - |
-            echo "Copying nginx configs..."
-            cp /src/nginx.conf /nginx/
-            cp /src/mime.types /nginx/
+            set -e
+
+            echo "🔹 Copying nginx configs..."
             mkdir -p /nginx/conf.d
-            cp /src/blockuseragents.rules /nginx/conf.d/
+            cp -f /src/nginx.conf /nginx/nginx.conf
+            cp -f /src/mime.types /nginx/mime.types
+            cp -f /src/blockuseragents.rules /nginx/conf.d/blockuseragents.rules
 
-            echo "Copying platform configs..."
-            cp /src/*.json /platform/
-            cp /src/allowed_host.txt /platform/
+            echo "🔹 Copying platform configs..."
+            mkdir -p /platform
+            cp -f /src/*.json /platform/ || true
+            cp -f /src/allowed_host.txt /platform/ || true
 
-            echo "Copying postgres configs..."
-            cp /src/postgresql.conf /postgres/
-            cp /src/pg_hba.conf /postgres/
+            echo "🔹 Copying postgres configs..."
+            mkdir -p /postgres/pgdata
+            cp -f /src/postgresql.conf /postgres/pgdata/postgresql.conf
+            cp -f /src/pg_hba.conf /postgres/pgdata/pg_hba.conf
 
-            echo "✅ All files copied"
+            echo "✅ All files copied successfully"
+
+            # optional debug
+            echo "🔍 Listing nginx dir:"
+            ls -l /nginx
+
+            echo "🔍 Listing platform dir:"
+            ls -l /platform
+
+            echo "🔍 Listing postgres dir:"
+            ls -l /postgres/pgdata
+
             sleep 5
 
         volumeMounts:
+
+        # ✅ FILE SOURCE (ConfigMap from Helm)
         - name: files
           mountPath: /src
 
+        # ✅ TARGET PVCs
         - name: nginx-pvc
           mountPath: /nginx
 
@@ -46,6 +64,7 @@ spec:
           mountPath: /postgres
 
       volumes:
+
       - name: files
         configMap:
           name: app-files
@@ -61,3 +80,4 @@ spec:
       - name: postgres-pvc
         persistentVolumeClaim:
           claimName: postgresql-data-new-pvc-11
+``
