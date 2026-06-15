@@ -2,45 +2,81 @@ apiVersion: apps/v1
 kind: StatefulSet
 
 metadata:
-  name: postgres15-new
-  namespace: myapp
+  name: {{ .Values.postgres.name }}
+  namespace: {{ .Values.namespace }}
 
 spec:
-  replicas: 1
+  replicas: {{ .Values.postgres.replicaCount }}
 
-  serviceName: postgres15-new
+  serviceName: {{ .Values.postgres.serviceName }}
 
   selector:
     matchLabels:
-      service: postgres15-new
+      service: {{ .Values.postgres.name }}
 
   template:
     metadata:
       labels:
-        service: postgres15-new
+        service: {{ .Values.postgres.name }}
 
     spec:
       imagePullSecrets:
-        - name: acr-secret
+        - name: {{ .Values.global.imagePullSecrets.name }}
 
       securityContext:
-        fsGroup: 1000860000
+        fsGroup: {{ .Values.postgres.securityContext.fsGroup }}
 
+      ########################################################
+      # ✅ VOLUMES (PVC + CONFIGMAP ONLY)
+      ########################################################
       volumes:
-        - name: postgresql-data-new
+        - name: postgresql-data
           persistentVolumeClaim:
-            claimName: postgresql-data-new-pvc-11
+            claimName: {{ .Values.postgres.pvc.data }}
 
-        - name: postgresql-backups-new
+        - name: postgresql-backups
           persistentVolumeClaim:
-            claimName: postgresql-backup-new-pvc-11
+            claimName: {{ .Values.postgres.pvc.backup }}
 
+        - name: postgres-config
+          configMap:
+            name: postgres-config-files
+
+      ########################################################
+      # ✅ INIT CONTAINER (COPY CONFIG → PVC)
+      ########################################################
+      initContainers:
+        - name: init-postgres-config
+          image: busybox
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+
+              echo "Copying config to PGDATA..."
+
+              cp /config/pg_hba.conf /pgdata/pgdata/pg_hba.conf
+              cp /config/postgresql.conf /pgdata/pgdata/postgresql.conf
+
+              chmod 600 /pgdata/pgdata/pg_hba.conf
+              chmod 600 /pgdata/pgdata/postgresql.conf
+
+              echo "✅ Config copied successfully"
+
+          volumeMounts:
+            - name: postgres-config
+              mountPath: /config
+
+            - name: postgresql-data
+              mountPath: /pgdata
+
+      ########################################################
+      # ✅ MAIN CONTAINER (UNCHANGED LOGIC)
+      ########################################################
       containers:
 
         - name: postgres15
-
-          image: revolutio.azurecr.io/revolutio_kubernetes/postgres:15-bullseye
-
+          image: "{{ .Values.postgres.image }}"
           imagePullPolicy: Always
 
           ports:
@@ -50,11 +86,11 @@ spec:
 
           resources:
             limits:
-              cpu: "1"
-              memory: 4Gi
+              cpu: {{ .Values.postgres.resources.limits.cpu }}
+              memory: {{ .Values.postgres.resources.limits.memory }}
             requests:
-              cpu: "1"
-              memory: 4Gi
+              cpu: {{ .Values.postgres.resources.requests.cpu }}
+              memory: {{ .Values.postgres.resources.requests.memory }}
 
           env:
             - name: PGDATA
@@ -62,40 +98,50 @@ spec:
 
           envFrom:
             - configMapRef:
-                name: envs-production-postgres-new
-
+                name: {{ .Values.postgres.envConfigMap }}
             - secretRef:
-                name: secrets-production-postgres-new
+                name: {{ .Values.postgres.secret }}
 
+          ########################################################
+          # ✅ MOUNTS (ONLY PVC + BACKUPS)
+          ########################################################
           volumeMounts:
-
-            - name: postgresql-data-new
+            - name: postgresql-data
               mountPath: /var/lib/postgresql/data
 
-            - name: postgresql-backups-new
+            - name: postgresql-backups
               mountPath: /backups
 
+          ########################################################
+          # ✅ KEEP YOUR EXISTING ARGS
+          ########################################################
           args:
             - "-c"
-            - shared_buffers=3GB
+            - config_file=/var/lib/postgresql/data/pgdata/postgresql.conf
+
             - "-c"
-            - work_mem=64MB
+            - hba_file=/var/lib/postgresql/data/pgdata/pg_hba.conf
+
             - "-c"
-            - maintenance_work_mem=1GB
+            - shared_buffers={{ .Values.postgres.tuning.shared_buffers }}
             - "-c"
-            - effective_io_concurrency=100
+            - work_mem={{ .Values.postgres.tuning.work_mem }}
+            - "-c"
+            - maintenance_work_mem={{ .Values.postgres.tuning.maintenance_work_mem }}
+            - "-c"
+            - effective_io_concurrency={{ .Values.postgres.tuning.effective_io_concurrency }}
             - "-c"
             - wal_compression=on
             - "-c"
-            - max_wal_size=1GB
+            - max_wal_size={{ .Values.postgres.tuning.max_wal_size }}
             - "-c"
-            - min_wal_size=80MB
+            - min_wal_size={{ .Values.postgres.tuning.min_wal_size }}
             - "-c"
             - log_statement=all
             - "-c"
-            - autovacuum_max_workers=5
+            - autovacuum_max_workers={{ .Values.postgres.tuning.autovacuum_max_workers }}
             - "-c"
-            - autovacuum_vacuum_cost_limit=1000
+            - autovacuum_vacuum_cost_limit={{ .Values.postgres.tuning.autovacuum_vacuum_cost_limit }}
             - "-c"
             - idle_in_transaction_session_timeout=240s
 
@@ -107,6 +153,9 @@ spec:
       dnsPolicy: ClusterFirst
       schedulerName: default-scheduler
 
+  ########################################################
+  # ✅ STATEFULSET SETTINGS (UNCHANGED)
+  ########################################################
   podManagementPolicy: OrderedReady
 
   updateStrategy:
