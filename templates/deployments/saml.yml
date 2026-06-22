@@ -25,7 +25,7 @@ spec:
         fsGroup: 70070
 
       imagePullSecrets:
-        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+        - name: {{ .Values.global.imagePullSecrets.name }}
 
       volumes:
         - name: platformconfig-storage
