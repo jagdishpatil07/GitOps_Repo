@@ -5,7 +5,7 @@ namespace: myapp
 
 global:
   imagePullSecrets:
-    - name: acr-secret   # 🔥 common for all deployments
+    name: acr-secret  # 🔥 common for all deployments
 
 
 # ============================================================
