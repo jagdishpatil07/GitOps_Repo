@@ -454,3 +454,31 @@ workerAppMigration:
     requests:
       cpu: "500m"
       memory: 1Gi
+
+
+=====================================================
+
+saml:
+  image: your-registry/revolutio:latest
+
+  pvc:
+    platformConfigs: platform-configs-pvc-1
+    static: static-pvc-1
+    media: media-pvc-1
+    assets: computation-storage-pvc-1
+
+  configMaps:
+    web: envs-production-web
+    postgres: envs-production-postgres-new
+
+  secrets:
+    web: secrets-production-web
+    postgres: secrets-production-postgres
+
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
