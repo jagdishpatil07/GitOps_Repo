@@ -120,20 +120,33 @@ spec:
               mountPath: /opt/revolutio/assets
 
           ########################################################
-          # ✅ SINGLE WORKER
+          # ✅ INIT + SINGLE WORKER ✅ (CRITICAL FIX)
           ########################################################
-          command: ["uvicorn"]
+          command: ["/bin/bash"]
           args:
-            - "saml.asgi:application"
-            - "--host"
-            - "0.0.0.0"
-            - "--port"
-            - "9000"
-            - "--workers"
-            - "1"
+            - -c
+            - |
+              echo "==== RUNNING INIT SCRIPT ===="
+
+              # run startup (migrations, config, tenant etc.)
+              /Installation_ref/scripts/start &
+
+              sleep 20
+
+              echo "==== STOPPING MULTI WORKERS ===="
+
+              pkill -f uvicorn || true
+              pkill -f gunicorn || true
+
+              echo "==== STARTING SINGLE WORKER ===="
+
+              exec uvicorn saml.asgi:application \
+                --host 0.0.0.0 \
+                --port 9000 \
+                --workers 1
 
           ########################################################
-          # ✅ FIXED PROBES (ONLY CHANGE ✅)
+          # ✅ PROBES (WORKING WITH TENANT)
           ########################################################
           readinessProbe:
             httpGet:
