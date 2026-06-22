@@ -27,6 +27,9 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
+      ########################################################
+      # ✅ VOLUMES
+      ########################################################
       volumes:
         - name: platformconfig-storage
           persistentVolumeClaim:
@@ -57,6 +60,9 @@ spec:
             medium: Memory
             sizeLimit: 1Gi
 
+      ########################################################
+      # ✅ CONTAINER
+      ########################################################
       containers:
         - name: saml
           image: "{{ .Values.saml.image }}"
@@ -70,23 +76,30 @@ spec:
               containerPort: 9000
 
           ########################################################
-          # ✅ ENV FIXES
+          # ✅ ENV
           ########################################################
           env:
             - name: TZ
               value: "UTC"
+
             - name: DJANGO_SETTINGS_MODULE
               value: "saml.settings"
+
             - name: GRPC_DNS_RESOLVER
               value: "native"
+
             - name: NUMBA_CACHE_DIR
               value: /tmp
+
             - name: XDG_CACHE_HOME
               value: /tmp/.cache
+
             - name: FONTCONFIG_PATH
               value: /etc/fonts
+
             - name: FONTCONFIG_FILE
               value: /etc/fonts/fonts.conf
+
             - name: WEB_CONCURRENCY
               value: "1"
 
@@ -100,24 +113,33 @@ spec:
             - secretRef:
                 name: {{ .Values.saml.secrets.postgres }}
 
+          ########################################################
+          # ✅ VOLUME MOUNTS
+          ########################################################
           volumeMounts:
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
+
             - name: static-storage
               mountPath: /opt/revolutio/static
+
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
+
             - name: assets-storage
               mountPath: /opt/revolutio/assets
+
             - name: tmp-storage
               mountPath: /tmp
+
             - name: temp-storage
               mountPath: /opt/temp
+
             - name: logs-storage
               mountPath: /opt/revolutio/logs
 
           ########################################################
-          # ✅ BOOTSTRAP + SINGLE WORKER
+          # ✅ FIXED START COMMAND ✅
           ########################################################
           command:
             - /bin/bash
@@ -126,11 +148,13 @@ spec:
             - |
               echo "====== SAML BOOTSTRAP START ======"
 
+              # ✅ IMPORTANT: DO NOT run in background
               if [ -f /Installation_ref/scripts/start ]; then
-                /Installation_ref/scripts/start &
+                /Installation_ref/scripts/start
               fi
 
-              sleep 20
+              echo "====== WAITING FOR INIT ======"
+              sleep 10
 
               echo "====== STARTING SAML SINGLE WORKER ======"
 
@@ -146,25 +170,21 @@ spec:
                 --log-level info
 
           ########################################################
-          # ✅ PROBES (FIXED)
+          # ✅ FIXED PROBES ✅ (NO /healthy)
           ########################################################
           readinessProbe:
             httpGet:
-              path: /healthy
+              path: /
               port: uvicorn
-            initialDelaySeconds: 30
-            timeoutSeconds: 5
-            periodSeconds: 15
-            failureThreshold: 3
+            initialDelaySeconds: 120
+            periodSeconds: 20
 
           livenessProbe:
             httpGet:
-              path: /healthy
+              path: /
               port: uvicorn
-            initialDelaySeconds: 60
-            timeoutSeconds: 5
-            periodSeconds: 20
-            failureThreshold: 5
+            initialDelaySeconds: 120
+            periodSeconds: 30
 
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
