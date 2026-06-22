@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: saml
+  namespace: {{ .Values.global.namespace }}
+
+spec:
+  selector:
+    service: saml
+
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+
+  type: ClusterIP
