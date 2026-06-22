@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: saml
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.namespace }}
   labels:
     service: saml
 
@@ -19,8 +19,6 @@ spec:
         service: saml
 
     spec:
-      serviceAccountName: {{ .Values.global.serviceAccountName }}
-
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
@@ -29,9 +27,6 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
-      ########################################################
-      # ✅ VOLUMES (FROM VALUES)
-      ########################################################
       volumes:
         - name: platformconfig-storage
           persistentVolumeClaim:
@@ -49,9 +44,6 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.saml.pvc.assets }}
 
-      ########################################################
-      # ✅ CONTAINER
-      ########################################################
       containers:
         - name: saml
           image: "{{ .Values.saml.image }}"
@@ -60,9 +52,6 @@ spec:
           securityContext:
             runAsUser: 70070
 
-          ########################################################
-          # ✅ RESOURCES (FROM VALUES)
-          ########################################################
           resources:
             requests:
               cpu: {{ .Values.saml.resources.requests.cpu }}
@@ -71,106 +60,91 @@ spec:
               cpu: {{ .Values.saml.resources.limits.cpu }}
               memory: {{ .Values.saml.resources.limits.memory }}
 
-          ########################################################
-          # ✅ PORT
-          ########################################################
           ports:
             - name: uvicorn
               containerPort: 9000
-              protocol: TCP
 
           ########################################################
-          # ✅ ENV
+          # ✅ SAME PROBES AS WEB
+          ########################################################
+          readinessProbe:
+            httpGet:
+              path: /
+              port: uvicorn
+            initialDelaySeconds: 120
+            periodSeconds: 20
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: uvicorn
+            initialDelaySeconds: 120
+            periodSeconds: 30
+
+          ########################################################
+          # ✅ SAME ENV (NO EXTRA ADDED)
           ########################################################
           env:
-            - name: TZ
-              value: "UTC"
+            - name: DATABASE_URL
+              value: {{ .Values.web.databaseUrl | quote }}
 
-            - name: DJANGO_SETTINGS_MODULE
-              value: "saml.settings"
-
-            - name: GRPC_DNS_RESOLVER
-              value: "native"
-
-          ########################################################
-          # ✅ ENV FROM VALUES
-          ########################################################
           envFrom:
             - configMapRef:
-                name: {{ .Values.saml.configMaps.web }}
+                name: {{ .Values.web.configMaps.web }}
             - configMapRef:
-                name: {{ .Values.saml.configMaps.postgres }}
+                name: {{ .Values.web.configMaps.postgres }}
             - secretRef:
-                name: {{ .Values.saml.secrets.web }}
+                name: {{ .Values.web.secrets.web }}
             - secretRef:
-                name: {{ .Values.saml.secrets.postgres }}
+                name: {{ .Values.web.secrets.postgres }}
 
           ########################################################
-          # ✅ VOLUME MOUNTS
+          # ✅ SAME VOLUMES
           ########################################################
           volumeMounts:
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
 
-            - name: static-storage
-              mountPath: /opt/revolutio/static
-
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
+
+            - name: static-storage
+              mountPath: /opt/revolutio/static
 
             - name: assets-storage
               mountPath: /opt/revolutio/assets
 
           ########################################################
-          # ✅ SINGLE WORKER (YOUR REQUEST ✅)
+          # ✅ SAME START LOGIC (SINGLE WORKER)
           ########################################################
-          command: ["uvicorn"]
+          command:
+            - /bin/bash
           args:
-            - "saml.asgi:application"
-            - "--host"
-            - "0.0.0.0"
-            - "--port"
-            - "9000"
-            - "--workers"
-            - "1"
+            - -c
+            - |
+              echo "====== BOOTSTRAP START ======"
 
-          ########################################################
-          # ✅ SAME STYLE PROBES AS WEB
-          ########################################################
-          readinessProbe:
-            httpGet:
-              path: /readiness
-              port: uvicorn
-              scheme: HTTP
-            initialDelaySeconds: 180
-            timeoutSeconds: 40
-            periodSeconds: 220
-            failureThreshold: 4
-            successThreshold: 1
+              # run bootstrap
+              /Installation_ref/scripts/start &
 
-          livenessProbe:
-            httpGet:
-              path: /healthy
-              port: uvicorn
-              scheme: HTTP
-            initialDelaySeconds: 180
-            timeoutSeconds: 60
-            periodSeconds: 20
-            successThreshold: 1
-            failureThreshold: 4
+              sleep 20
 
-          terminationMessagePath: /tmp/web-log
-          terminationMessagePolicy: File
+              echo "====== SWITCHING TO SINGLE WORKER ======"
+
+              # kill multi workers
+              pkill -f uvicorn || true
+
+              # start single worker SAML
+              exec uvicorn saml.asgi:application \
+                --host 0.0.0.0 \
+                --port 9000 \
+                --workers 1 \
+                --lifespan off \
+                --timeout-keep-alive 60 \
+                --log-level info
 
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
-      schedulerName: default-scheduler
 
   strategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
-
-  revisionHistoryLimit: 10
-  progressDeadlineSeconds: 600
