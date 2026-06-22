@@ -27,6 +27,9 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
+      ########################################################
+      # ✅ VOLUMES
+      ########################################################
       volumes:
         - name: platformconfig-storage
           persistentVolumeClaim:
@@ -44,6 +47,9 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.saml.pvc.assets }}
 
+      ########################################################
+      # ✅ CONTAINER
+      ########################################################
       containers:
         - name: saml
           image: "{{ .Values.saml.image }}"
@@ -65,29 +71,17 @@ spec:
               containerPort: 9000
 
           ########################################################
-          # ✅ SAME PROBES AS WEB
-          ########################################################
-          readinessProbe:
-            httpGet:
-              path: /
-              port: uvicorn
-            initialDelaySeconds: 120
-            periodSeconds: 20
-
-          livenessProbe:
-            httpGet:
-              path: /
-              port: uvicorn
-            initialDelaySeconds: 120
-            periodSeconds: 30
-
-          ########################################################
-          # ✅ SAME ENV (NO EXTRA ADDED)
+          # ✅ REQUIRED ENV (ONLY THIS ONE IS MANDATORY)
           ########################################################
           env:
             - name: DATABASE_URL
               value: {{ .Values.web.databaseUrl | quote }}
+            - name: DJANGO_SETTINGS_MODULE
+              value: "saml.settings"
 
+          ########################################################
+          # ✅ CONFIGMAP + SECRETS (SAME AS WEB)
+          ########################################################
           envFrom:
             - configMapRef:
                 name: {{ .Values.web.configMaps.web }}
@@ -99,7 +93,7 @@ spec:
                 name: {{ .Values.web.secrets.postgres }}
 
           ########################################################
-          # ✅ SAME VOLUMES
+          # ✅ VOLUME MOUNTS
           ########################################################
           volumeMounts:
             - name: platformconfig-storage
@@ -115,7 +109,7 @@ spec:
               mountPath: /opt/revolutio/assets
 
           ########################################################
-          # ✅ SAME START LOGIC (SINGLE WORKER)
+          # ✅ FINAL START (EXACT SAME AS WEB + SINGLE WORKER)
           ########################################################
           command:
             - /bin/bash
@@ -124,17 +118,17 @@ spec:
             - |
               echo "====== BOOTSTRAP START ======"
 
-              # run bootstrap
+              # Start bootstrap
               /Installation_ref/scripts/start &
 
               sleep 20
 
               echo "====== SWITCHING TO SINGLE WORKER ======"
 
-              # kill multi workers
+              # kill multiple workers
               pkill -f uvicorn || true
 
-              # start single worker SAML
+              # start single worker with correct settings
               exec uvicorn saml.asgi:application \
                 --host 0.0.0.0 \
                 --port 9000 \
@@ -142,6 +136,23 @@ spec:
                 --lifespan off \
                 --timeout-keep-alive 60 \
                 --log-level info
+
+          ########################################################
+          # ✅ PROBES (SAME AS WEB)
+          ########################################################
+          readinessProbe:
+            httpGet:
+              path: /
+              port: uvicorn
+            initialDelaySeconds: 120
+            periodSeconds: 20
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: uvicorn
+            initialDelaySeconds: 120
+            periodSeconds: 30
 
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
