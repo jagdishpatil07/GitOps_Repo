@@ -94,6 +94,7 @@ spec:
             - name: FONTCONFIG_FILE
               value: /etc/fonts/fonts.conf
 
+            # ✅ force single worker
             - name: WEB_CONCURRENCY
               value: "1"
 
@@ -159,25 +160,21 @@ spec:
                 --log-level info
 
           ########################################################
-          # ✅ PRODUCTION-GRADE PROBES (FIXED)
+          # ✅ PRODUCTION-GRADE PROBES (HTTP - BEST PRACTICE)
           ########################################################
           readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - "/opt/revolutio/healthcheck.sh 9000"
+            httpGet:
+              path: /
+              port: uvicorn
             initialDelaySeconds: 30
             timeoutSeconds: 10
             periodSeconds: 20
             failureThreshold: 3
 
           livenessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - "/opt/revolutio/healthcheck.sh 9000"
+            httpGet:
+              path: /
+              port: uvicorn
             initialDelaySeconds: 60
             timeoutSeconds: 10
             periodSeconds: 30
