@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: saml
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Values.global.namespace }}
   labels:
     service: saml
 
@@ -19,6 +19,8 @@ spec:
         service: saml
 
     spec:
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
@@ -28,7 +30,7 @@ spec:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
       ########################################################
-      # ✅ VOLUMES
+      # ✅ VOLUMES (FROM VALUES)
       ########################################################
       volumes:
         - name: platformconfig-storage
@@ -47,9 +49,6 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.saml.pvc.assets }}
 
-        - name: tmp-storage
-          emptyDir: {}
-
       ########################################################
       # ✅ CONTAINER
       ########################################################
@@ -61,9 +60,24 @@ spec:
           securityContext:
             runAsUser: 70070
 
+          ########################################################
+          # ✅ RESOURCES (FROM VALUES)
+          ########################################################
+          resources:
+            requests:
+              cpu: {{ .Values.saml.resources.requests.cpu }}
+              memory: {{ .Values.saml.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.saml.resources.limits.cpu }}
+              memory: {{ .Values.saml.resources.limits.memory }}
+
+          ########################################################
+          # ✅ PORT
+          ########################################################
           ports:
             - name: uvicorn
               containerPort: 9000
+              protocol: TCP
 
           ########################################################
           # ✅ ENV
@@ -75,9 +89,12 @@ spec:
             - name: DJANGO_SETTINGS_MODULE
               value: "saml.settings"
 
-            - name: WEB_CONCURRENCY
-              value: "1"
+            - name: GRPC_DNS_RESOLVER
+              value: "native"
 
+          ########################################################
+          # ✅ ENV FROM VALUES
+          ########################################################
           envFrom:
             - configMapRef:
                 name: {{ .Values.saml.configMaps.web }}
@@ -104,11 +121,8 @@ spec:
             - name: assets-storage
               mountPath: /opt/revolutio/assets
 
-            - name: tmp-storage
-              mountPath: /tmp
-
           ########################################################
-          # ✅ DIRECT UVICORN (SINGLE WORKER ✅)
+          # ✅ SINGLE WORKER (YOUR REQUEST ✅)
           ########################################################
           command: ["uvicorn"]
           args:
@@ -119,28 +133,44 @@ spec:
             - "9000"
             - "--workers"
             - "1"
-            - "--lifespan"
-            - "off"
 
           ########################################################
-          # ✅ STABLE PROBES ✅
+          # ✅ SAME STYLE PROBES AS WEB
           ########################################################
           readinessProbe:
             httpGet:
-              path: /
+              path: /readiness
               port: uvicorn
-            initialDelaySeconds: 120
-            periodSeconds: 20
+              scheme: HTTP
+            initialDelaySeconds: 180
+            timeoutSeconds: 40
+            periodSeconds: 220
+            failureThreshold: 4
+            successThreshold: 1
 
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthy
               port: uvicorn
-            initialDelaySeconds: 120
-            periodSeconds: 30
+              scheme: HTTP
+            initialDelaySeconds: 180
+            timeoutSeconds: 60
+            periodSeconds: 20
+            successThreshold: 1
+            failureThreshold: 4
+
+          terminationMessagePath: /tmp/web-log
+          terminationMessagePolicy: File
 
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
+      schedulerName: default-scheduler
 
   strategy:
     type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
