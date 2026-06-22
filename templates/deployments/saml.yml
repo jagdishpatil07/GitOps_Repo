@@ -30,7 +30,7 @@ spec:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
       ########################################################
-      # ✅ VOLUMES
+      # ✅ VOLUMES (FROM VALUES)
       ########################################################
       volumes:
         - name: platformconfig-storage
@@ -61,7 +61,7 @@ spec:
             runAsUser: 70070
 
           ########################################################
-          # ✅ RESOURCES
+          # ✅ RESOURCES (FROM VALUES)
           ########################################################
           resources:
             requests:
@@ -85,13 +85,15 @@ spec:
           env:
             - name: TZ
               value: "UTC"
+
             - name: DJANGO_SETTINGS_MODULE
               value: "saml.settings"
+
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
           ########################################################
-          # ✅ ENV FROM
+          # ✅ ENV FROM VALUES
           ########################################################
           envFrom:
             - configMapRef:
@@ -120,42 +122,26 @@ spec:
               mountPath: /opt/revolutio/assets
 
           ########################################################
-          # ✅ INIT + SINGLE WORKER ✅ (CRITICAL FIX)
+          # ✅ SINGLE WORKER (YOUR REQUEST ✅)
           ########################################################
-          command: ["/bin/bash"]
+          command: ["uvicorn"]
           args:
-            - -c
-            - |
-              echo "==== RUNNING INIT SCRIPT ===="
-
-              # run startup (migrations, config, tenant etc.)
-              /Installation_ref/scripts/start &
-
-              sleep 20
-
-              echo "==== STOPPING MULTI WORKERS ===="
-
-              pkill -f uvicorn || true
-              pkill -f gunicorn || true
-
-              echo "==== STARTING SINGLE WORKER ===="
-
-              exec uvicorn saml.asgi:application \
-                --host 0.0.0.0 \
-                --port 9000 \
-                --workers 1
+            - "saml.asgi:application"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "9000"
+            - "--workers"
+            - "1"
 
           ########################################################
-          # ✅ PROBES (WORKING WITH TENANT)
+          # ✅ SAME STYLE PROBES AS WEB
           ########################################################
           readinessProbe:
             httpGet:
               path: /readiness
               port: uvicorn
               scheme: HTTP
-              httpHeaders:
-                - name: Host
-                  value: 4.240.124.84
             initialDelaySeconds: 180
             timeoutSeconds: 40
             periodSeconds: 220
@@ -167,9 +153,6 @@ spec:
               path: /healthy
               port: uvicorn
               scheme: HTTP
-              httpHeaders:
-                - name: Host
-                  value: 4.240.124.84
             initialDelaySeconds: 180
             timeoutSeconds: 60
             periodSeconds: 20
