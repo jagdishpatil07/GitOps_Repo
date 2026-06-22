@@ -7,7 +7,7 @@ metadata:
     service: nginx
 
 spec:
-  replicas: 1
+  replicas: {{ .Values.nginx.replicaCount }}
 
   selector:
     matchLabels:
@@ -36,11 +36,11 @@ spec:
 
         - name: media-storage
           persistentVolumeClaim:
-            claimName: media-pvc-1
+            claimName: {{ .Values.nginx.pvc.media }}
 
         - name: static-storage
           persistentVolumeClaim:
-            claimName: static-pvc-1
+            claimName: {{ .Values.nginx.pvc.static }}
 
         - name: nginx-cache
           emptyDir: {}
@@ -58,7 +58,7 @@ spec:
 
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: {{ .Values.nginx.port }}
               protocol: TCP
 
           volumeMounts:
@@ -81,3 +81,4 @@ spec:
           terminationMessagePolicy: File
 
       restartPolicy: Always
+`
