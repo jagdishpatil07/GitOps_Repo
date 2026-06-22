@@ -75,26 +75,18 @@ spec:
           env:
             - name: TZ
               value: "UTC"
-
             - name: DJANGO_SETTINGS_MODULE
               value: "saml.settings"
-
             - name: GRPC_DNS_RESOLVER
               value: "native"
-
             - name: NUMBA_CACHE_DIR
               value: /tmp
-
             - name: XDG_CACHE_HOME
               value: /tmp/.cache
-
             - name: FONTCONFIG_PATH
               value: /etc/fonts
-
             - name: FONTCONFIG_FILE
               value: /etc/fonts/fonts.conf
-
-            # ✅ force single worker
             - name: WEB_CONCURRENCY
               value: "1"
 
@@ -111,22 +103,16 @@ spec:
           volumeMounts:
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
-
             - name: static-storage
               mountPath: /opt/revolutio/static
-
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
-
             - name: assets-storage
               mountPath: /opt/revolutio/assets
-
             - name: tmp-storage
               mountPath: /tmp
-
             - name: temp-storage
               mountPath: /opt/temp
-
             - name: logs-storage
               mountPath: /opt/revolutio/logs
 
@@ -160,24 +146,24 @@ spec:
                 --log-level info
 
           ########################################################
-          # ✅ PRODUCTION-GRADE PROBES (HTTP - BEST PRACTICE)
+          # ✅ PROBES (FIXED)
           ########################################################
           readinessProbe:
             httpGet:
-              path: /
+              path: /healthy
               port: uvicorn
             initialDelaySeconds: 30
-            timeoutSeconds: 10
-            periodSeconds: 20
+            timeoutSeconds: 5
+            periodSeconds: 15
             failureThreshold: 3
 
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthy
               port: uvicorn
             initialDelaySeconds: 60
-            timeoutSeconds: 10
-            periodSeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 20
             failureThreshold: 5
 
       terminationGracePeriodSeconds: 30
