@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.namespace }}
   labels:
     service: nginx
 
@@ -19,20 +19,30 @@ spec:
         service: nginx
 
     spec:
-      serviceAccountName: {{ .Values.global.serviceAccountName }}
+      restartPolicy: Always
 
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
+      ########################################################
+      # SECURITY
+      ########################################################
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
         fsGroup: 1000860000
 
+      ########################################################
+      # VOLUMES
+      ########################################################
       volumes:
         - name: nginx-conf-storage
           persistentVolumeClaim:
             claimName: nginx-conf-pvc-1
+
+        - name: nginx-config-cm
+          configMap:
+            name: nginx-config
 
         - name: media-storage
           persistentVolumeClaim:
@@ -48,6 +58,9 @@ spec:
         - name: nginx-run
           emptyDir: {}
 
+      ########################################################
+      # CONTAINER
+      ########################################################
       containers:
         - name: nginx
           image: "{{ .Values.nginx.image }}"
@@ -58,12 +71,27 @@ spec:
 
           ports:
             - name: http
-              containerPort: {{ .Values.nginx.port }}
+              containerPort: 8080
               protocol: TCP
 
+          ########################################################
+          # VOLUME MOUNTS (FINAL CORRECT)
+          ########################################################
           volumeMounts:
             - name: nginx-conf-storage
               mountPath: /etc/nginx/
+
+            - name: nginx-config-cm
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+
+            - name: nginx-config-cm
+              mountPath: /etc/nginx/mime.types
+              subPath: mime.types
+
+            - name: nginx-config-cm
+              mountPath: /etc/nginx/conf.d/blockuseragents.rules
+              subPath: blockuseragents.rules
 
             - name: media-storage
               mountPath: /var/www/revolutio/media
@@ -80,4 +108,17 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
 
-      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      terminationGracePeriodSeconds: 30
+
+  ########################################################
+  # STRATEGY
+  ########################################################
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
