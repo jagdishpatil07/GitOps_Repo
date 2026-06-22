@@ -91,9 +91,19 @@ spec:
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
-            # ✅ FIX: numba caching issue
+            # ✅ Fix numba cache
             - name: NUMBA_CACHE_DIR
               value: /tmp
+
+            # ✅ Fix fontconfig cache (your error)
+            - name: XDG_CACHE_HOME
+              value: /tmp/.cache
+
+            - name: FONTCONFIG_PATH
+              value: /etc/fonts
+
+            - name: FONTCONFIG_FILE
+              value: /etc/fonts/fonts.conf
 
           envFrom:
             - configMapRef:
