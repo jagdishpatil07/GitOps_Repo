@@ -30,7 +30,7 @@ spec:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
       ########################################################
-      # ✅ VOLUMES (FROM VALUES)
+      # ✅ VOLUMES
       ########################################################
       volumes:
         - name: platformconfig-storage
@@ -61,7 +61,7 @@ spec:
             runAsUser: 70070
 
           ########################################################
-          # ✅ RESOURCES (FROM VALUES)
+          # ✅ RESOURCES
           ########################################################
           resources:
             requests:
@@ -85,15 +85,13 @@ spec:
           env:
             - name: TZ
               value: "UTC"
-
             - name: DJANGO_SETTINGS_MODULE
               value: "saml.settings"
-
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
           ########################################################
-          # ✅ ENV FROM VALUES
+          # ✅ ENV FROM
           ########################################################
           envFrom:
             - configMapRef:
@@ -122,7 +120,7 @@ spec:
               mountPath: /opt/revolutio/assets
 
           ########################################################
-          # ✅ SINGLE WORKER (YOUR REQUEST ✅)
+          # ✅ SINGLE WORKER
           ########################################################
           command: ["uvicorn"]
           args:
@@ -135,13 +133,16 @@ spec:
             - "1"
 
           ########################################################
-          # ✅ SAME STYLE PROBES AS WEB
+          # ✅ FIXED PROBES (ONLY CHANGE ✅)
           ########################################################
           readinessProbe:
             httpGet:
               path: /readiness
               port: uvicorn
               scheme: HTTP
+              httpHeaders:
+                - name: Host
+                  value: 4.240.124.84
             initialDelaySeconds: 180
             timeoutSeconds: 40
             periodSeconds: 220
@@ -153,6 +154,9 @@ spec:
               path: /healthy
               port: uvicorn
               scheme: HTTP
+              httpHeaders:
+                - name: Host
+                  value: 4.240.124.84
             initialDelaySeconds: 180
             timeoutSeconds: 60
             periodSeconds: 20
