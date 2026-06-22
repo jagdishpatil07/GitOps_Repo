@@ -108,30 +108,22 @@ spec:
               mountPath: /tmp
 
           ########################################################
-          # ✅ SIMPLE START (NO BACKGROUND, SINGLE WORKER ✅)
+          # ✅ DIRECT UVICORN (SINGLE WORKER ✅)
           ########################################################
-          command:
-            - /bin/bash
+          command: ["uvicorn"]
           args:
-            - -c
-            - |
-              echo "====== SAML START ======"
-
-              # ✅ Run init script (blocking)
-              if [ -f /Installation_ref/scripts/start ]; then
-                /Installation_ref/scripts/start
-              fi
-
-              # ✅ Start single worker
-              exec uvicorn saml.asgi:application \
-                --host 0.0.0.0 \
-                --port 9000 \
-                --workers 1 \
-                --lifespan off \
-                --log-level info
+            - "saml.asgi:application"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "9000"
+            - "--workers"
+            - "1"
+            - "--lifespan"
+            - "off"
 
           ########################################################
-          # ✅ PROBES (FIXED ✅)
+          # ✅ STABLE PROBES ✅
           ########################################################
           readinessProbe:
             httpGet:
