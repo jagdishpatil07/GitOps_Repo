@@ -70,7 +70,7 @@ spec:
               containerPort: 9000
 
           ########################################################
-          # ✅ ENV FIXES (NUMBA + FONTCONFIG)
+          # ✅ ENV FIXES
           ########################################################
           env:
             - name: TZ
@@ -94,7 +94,6 @@ spec:
             - name: FONTCONFIG_FILE
               value: /etc/fonts/fonts.conf
 
-            # ✅ force single worker
             - name: WEB_CONCURRENCY
               value: "1"
 
@@ -131,7 +130,7 @@ spec:
               mountPath: /opt/revolutio/logs
 
           ########################################################
-          # ✅ SAME PATTERN AS WEB (BOOTSTRAP + SINGLE WORKER)
+          # ✅ BOOTSTRAP + SINGLE WORKER
           ########################################################
           command:
             - /bin/bash
@@ -140,21 +139,17 @@ spec:
             - |
               echo "====== SAML BOOTSTRAP START ======"
 
-              # start original script if needed
               if [ -f /Installation_ref/scripts/start ]; then
                 /Installation_ref/scripts/start &
               fi
 
-              # wait for init
               sleep 20
 
               echo "====== STARTING SAML SINGLE WORKER ======"
 
-              # kill any existing uvicorn/gunicorn
               pkill -f uvicorn || true
               pkill -f gunicorn || true
 
-              # run SINGLE worker
               exec uvicorn saml.asgi:application \
                 --host 0.0.0.0 \
                 --port 9000 \
@@ -164,25 +159,29 @@ spec:
                 --log-level info
 
           ########################################################
-          # ✅ PROBES (same style)
+          # ✅ PRODUCTION-GRADE PROBES (FIXED)
           ########################################################
           readinessProbe:
             exec:
               command:
-                - /bin/bash
+                - sh
                 - -c
                 - "/opt/revolutio/healthcheck.sh 9000"
-            initialDelaySeconds: 120
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
             periodSeconds: 20
+            failureThreshold: 3
 
           livenessProbe:
             exec:
               command:
-                - /bin/bash
+                - sh
                 - -c
                 - "/opt/revolutio/healthcheck.sh 9000"
-            initialDelaySeconds: 120
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
             periodSeconds: 30
+            failureThreshold: 5
 
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
