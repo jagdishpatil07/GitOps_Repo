@@ -1,0 +1,163 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saml
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    service: saml
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      service: saml
+
+  template:
+    metadata:
+      labels:
+        service: saml
+
+    spec:
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+
+      securityContext:
+        fsGroup: 70070
+
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+
+      volumes:
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.saml.pvc.platformConfigs }}
+
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.saml.pvc.static }}
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.saml.pvc.media }}
+
+        - name: assets-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.saml.pvc.assets }}
+
+        # ✅ tmpfs equivalent
+        - name: tmp-storage
+          emptyDir: {}
+
+        - name: temp-storage
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+
+        - name: logs-storage
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+
+      containers:
+        - name: saml
+          image: "{{ .Values.saml.image }}"
+          imagePullPolicy: Always
+
+          securityContext:
+            runAsUser: 70070
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+
+          command:
+            - /bin/bash
+            - -c
+            - "uvicorn saml.asgi:application --port 9000 --host 0.0.0.0"
+
+          ports:
+            - containerPort: 9000
+              protocol: TCP
+
+          env:
+            - name: TZ
+              value: "UTC"
+
+            - name: DJANGO_SETTINGS_MODULE
+              value: "saml.settings"
+
+            - name: GRPC_DNS_RESOLVER
+              value: "native"
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.saml.configMaps.web }}
+            - configMapRef:
+                name: {{ .Values.saml.configMaps.postgres }}
+            - secretRef:
+                name: {{ .Values.saml.secrets.web }}
+            - secretRef:
+                name: {{ .Values.saml.secrets.postgres }}
+
+          volumeMounts:
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
+
+            - name: assets-storage
+              mountPath: /opt/revolutio/assets
+
+            - name: tmp-storage
+              mountPath: /tmp
+
+            - name: temp-storage
+              mountPath: /opt/temp
+
+            - name: logs-storage
+              mountPath: /opt/revolutio/logs
+
+          # ✅ IMPORTANT: Prevent early restart
+          startupProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "/opt/revolutio/healthcheck.sh 9000"
+            failureThreshold: 30
+            periodSeconds: 10
+
+          # ✅ Controls traffic
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "/opt/revolutio/healthcheck.sh 9000"
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+            periodSeconds: 60
+            failureThreshold: 5
+
+          # ✅ Restarts container if stuck
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "/opt/revolutio/healthcheck.sh 9000"
+            initialDelaySeconds: 60
+            timeoutSeconds: 30
+            periodSeconds: 60
+            failureThreshold: 5
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
