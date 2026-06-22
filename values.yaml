@@ -473,7 +473,7 @@ saml:
 
   secrets:
     web: secrets-production-web
-    postgres: secrets-production-postgres
+    postgres: secrets-production-postgres-new
 
   resources:
     requests:
