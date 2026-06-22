@@ -50,16 +50,6 @@ spec:
         - name: tmp-storage
           emptyDir: {}
 
-        - name: temp-storage
-          emptyDir:
-            medium: Memory
-            sizeLimit: 1Gi
-
-        - name: logs-storage
-          emptyDir:
-            medium: Memory
-            sizeLimit: 1Gi
-
       ########################################################
       # ✅ CONTAINER
       ########################################################
@@ -84,21 +74,6 @@ spec:
 
             - name: DJANGO_SETTINGS_MODULE
               value: "saml.settings"
-
-            - name: GRPC_DNS_RESOLVER
-              value: "native"
-
-            - name: NUMBA_CACHE_DIR
-              value: /tmp
-
-            - name: XDG_CACHE_HOME
-              value: /tmp/.cache
-
-            - name: FONTCONFIG_PATH
-              value: /etc/fonts
-
-            - name: FONTCONFIG_FILE
-              value: /etc/fonts/fonts.conf
 
             - name: WEB_CONCURRENCY
               value: "1"
@@ -132,45 +107,31 @@ spec:
             - name: tmp-storage
               mountPath: /tmp
 
-            - name: temp-storage
-              mountPath: /opt/temp
-
-            - name: logs-storage
-              mountPath: /opt/revolutio/logs
-
           ########################################################
-          # ✅ FIXED START COMMAND ✅
+          # ✅ SIMPLE START (NO BACKGROUND, SINGLE WORKER ✅)
           ########################################################
           command:
             - /bin/bash
           args:
             - -c
             - |
-              echo "====== SAML BOOTSTRAP START ======"
+              echo "====== SAML START ======"
 
-              # ✅ IMPORTANT: DO NOT run in background
+              # ✅ Run init script (blocking)
               if [ -f /Installation_ref/scripts/start ]; then
                 /Installation_ref/scripts/start
               fi
 
-              echo "====== WAITING FOR INIT ======"
-              sleep 10
-
-              echo "====== STARTING SAML SINGLE WORKER ======"
-
-              pkill -f uvicorn || true
-              pkill -f gunicorn || true
-
+              # ✅ Start single worker
               exec uvicorn saml.asgi:application \
                 --host 0.0.0.0 \
                 --port 9000 \
                 --workers 1 \
                 --lifespan off \
-                --timeout-keep-alive 60 \
                 --log-level info
 
           ########################################################
-          # ✅ FIXED PROBES ✅ (NO /healthy)
+          # ✅ PROBES (FIXED ✅)
           ########################################################
           readinessProbe:
             httpGet:
