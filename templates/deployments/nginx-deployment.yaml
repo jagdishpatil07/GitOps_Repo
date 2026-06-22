@@ -22,7 +22,7 @@ spec:
       serviceAccountName: {{ .Values.global.serviceAccountName }}
 
       imagePullSecrets:
-        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+        - name: {{ .Values.global.imagePullSecrets.name }}
 
       securityContext:
         runAsUser: 70070
