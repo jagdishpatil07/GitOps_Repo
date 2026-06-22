@@ -46,7 +46,7 @@ data:
   ALLOWED_HOSTS: "*"
   DJANGO_SESSION_COOKIE_SAMESITE: "Lax"
   FERNET_SECRET: "IozSZydaPuzwwHunI_SuUP31g9UP0oCjvQn9mrs"
-
+  SERVER_NAME: "acies.test *.acies.test"
   
   # ✅ FIXED (Optional)
   DJANGO_ALLOWED_HOSTS: '*'
