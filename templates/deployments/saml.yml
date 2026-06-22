@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: saml
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Values.global.namespace }}
   labels:
     service: saml
 
@@ -19,6 +19,8 @@ spec:
         service: saml
 
     spec:
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
@@ -28,7 +30,7 @@ spec:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
       ########################################################
-      # ✅ VOLUMES
+      
       ########################################################
       volumes:
         - name: platformconfig-storage
@@ -48,7 +50,7 @@ spec:
             claimName: {{ .Values.saml.pvc.assets }}
 
       ########################################################
-      # ✅ CONTAINER
+      # CONTAINER
       ########################################################
       containers:
         - name: saml
@@ -58,6 +60,9 @@ spec:
           securityContext:
             runAsUser: 70070
 
+          ########################################################
+          # 
+          ########################################################
           resources:
             requests:
               cpu: {{ .Values.saml.resources.requests.cpu }}
@@ -66,99 +71,106 @@ spec:
               cpu: {{ .Values.saml.resources.limits.cpu }}
               memory: {{ .Values.saml.resources.limits.memory }}
 
+          ########################################################
+          #  PORT
+          ########################################################
           ports:
             - name: uvicorn
               containerPort: 9000
+              protocol: TCP
 
           ########################################################
-          # ✅ REQUIRED ENV
+          # ENV
           ########################################################
           env:
-            - name: DATABASE_URL
-              value: {{ .Values.web.databaseUrl | quote }}
+            - name: TZ
+              value: "UTC"
+
             - name: DJANGO_SETTINGS_MODULE
               value: "saml.settings"
 
+            - name: GRPC_DNS_RESOLVER
+              value: "native"
+
           ########################################################
-          # ✅ CONFIGMAP + SECRETS
+          #  ENV FROM VALUES
           ########################################################
           envFrom:
             - configMapRef:
-                name: {{ .Values.web.configMaps.web }}
+                name: {{ .Values.saml.configMaps.web }}
             - configMapRef:
-                name: {{ .Values.web.configMaps.postgres }}
+                name: {{ .Values.saml.configMaps.postgres }}
             - secretRef:
-                name: {{ .Values.web.secrets.web }}
+                name: {{ .Values.saml.secrets.web }}
             - secretRef:
-                name: {{ .Values.web.secrets.postgres }}
+                name: {{ .Values.saml.secrets.postgres }}
 
           ########################################################
-          # ✅ VOLUME MOUNTS
+          #  VOLUME MOUNTS
           ########################################################
           volumeMounts:
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
 
-            - name: media-storage
-              mountPath: /opt/revolutio/Core/media
-
             - name: static-storage
               mountPath: /opt/revolutio/static
+
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
 
             - name: assets-storage
               mountPath: /opt/revolutio/assets
 
           ########################################################
-          # ✅ START (BOOTSTRAP + SINGLE WORKER)
+          # SINGLE WORKER 
           ########################################################
-          command:
-            - /bin/bash
+          command: ["uvicorn"]
           args:
-            - -c
-            - |
-              echo "====== BOOTSTRAP START ======"
-
-              /Installation_ref/scripts/start &
-
-              sleep 20
-
-              echo "====== SWITCHING TO SINGLE WORKER ======"
-
-              pkill -f uvicorn || true
-
-              exec uvicorn saml.asgi:application \
-                --host 0.0.0.0 \
-                --port 9000 \
-                --workers 1 \
-                --lifespan off \
-                --timeout-keep-alive 60 \
-                --log-level info
+            - "saml.asgi:application"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "9000"
+            - "--workers"
+            - "1"
 
           ########################################################
-          # ✅ FIXED PROBES (HOST HEADER ADDED ✅)
+          # 
           ########################################################
           readinessProbe:
             httpGet:
-              path: /
+              path: /readiness
               port: uvicorn
-              httpHeaders:
-                - name: Host
-                  value: 4.240.124.84
-            initialDelaySeconds: 120
-            periodSeconds: 20
+              scheme: HTTP
+            initialDelaySeconds: 180
+            timeoutSeconds: 40
+            periodSeconds: 220
+            failureThreshold: 4
+            successThreshold: 1
 
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthy
               port: uvicorn
-              httpHeaders:
-                - name: Host
-                  value: 4.240.124.84
-            initialDelaySeconds: 120
-            periodSeconds: 30
+              scheme: HTTP
+            initialDelaySeconds: 180
+            timeoutSeconds: 60
+            periodSeconds: 20
+            successThreshold: 1
+            failureThreshold: 4
+
+          terminationMessagePath: /tmp/web-log
+          terminationMessagePolicy: File
 
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
+      schedulerName: default-scheduler
 
   strategy:
     type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
