@@ -459,7 +459,7 @@ workerAppMigration:
 # =====================================================
 
 saml:
-  image: your-registry/revolutio:latest
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
 
   pvc:
     platformConfigs: platform-configs-pvc-1
