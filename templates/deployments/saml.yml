@@ -71,7 +71,7 @@ spec:
               containerPort: 9000
 
           ########################################################
-          # ✅ REQUIRED ENV (ONLY THIS ONE IS MANDATORY)
+          # ✅ REQUIRED ENV
           ########################################################
           env:
             - name: DATABASE_URL
@@ -80,7 +80,7 @@ spec:
               value: "saml.settings"
 
           ########################################################
-          # ✅ CONFIGMAP + SECRETS (SAME AS WEB)
+          # ✅ CONFIGMAP + SECRETS
           ########################################################
           envFrom:
             - configMapRef:
@@ -109,7 +109,7 @@ spec:
               mountPath: /opt/revolutio/assets
 
           ########################################################
-          # ✅ FINAL START (EXACT SAME AS WEB + SINGLE WORKER)
+          # ✅ START (BOOTSTRAP + SINGLE WORKER)
           ########################################################
           command:
             - /bin/bash
@@ -118,17 +118,14 @@ spec:
             - |
               echo "====== BOOTSTRAP START ======"
 
-              # Start bootstrap
               /Installation_ref/scripts/start &
 
               sleep 20
 
               echo "====== SWITCHING TO SINGLE WORKER ======"
 
-              # kill multiple workers
               pkill -f uvicorn || true
 
-              # start single worker with correct settings
               exec uvicorn saml.asgi:application \
                 --host 0.0.0.0 \
                 --port 9000 \
@@ -138,12 +135,15 @@ spec:
                 --log-level info
 
           ########################################################
-          # ✅ PROBES (SAME AS WEB)
+          # ✅ FIXED PROBES (HOST HEADER ADDED ✅)
           ########################################################
           readinessProbe:
             httpGet:
               path: /
               port: uvicorn
+              httpHeaders:
+                - name: Host
+                  value: 4.240.124.84
             initialDelaySeconds: 120
             periodSeconds: 20
 
@@ -151,6 +151,9 @@ spec:
             httpGet:
               path: /
               port: uvicorn
+              httpHeaders:
+                - name: Host
+                  value: 4.240.124.84
             initialDelaySeconds: 120
             periodSeconds: 30
 
