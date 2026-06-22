@@ -44,7 +44,6 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.saml.pvc.assets }}
 
-        # ✅ tmpfs equivalent
         - name: tmp-storage
           emptyDir: {}
 
@@ -92,6 +91,10 @@ spec:
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
+            # ✅ FIX: numba caching issue
+            - name: NUMBA_CACHE_DIR
+              value: /tmp
+
           envFrom:
             - configMapRef:
                 name: {{ .Values.saml.configMaps.web }}
@@ -124,7 +127,6 @@ spec:
             - name: logs-storage
               mountPath: /opt/revolutio/logs
 
-          # ✅ IMPORTANT: Prevent early restart
           startupProbe:
             exec:
               command:
@@ -134,7 +136,6 @@ spec:
             failureThreshold: 30
             periodSeconds: 10
 
-          # ✅ Controls traffic
           readinessProbe:
             exec:
               command:
@@ -146,7 +147,6 @@ spec:
             periodSeconds: 60
             failureThreshold: 5
 
-          # ✅ Restarts container if stuck
           livenessProbe:
             exec:
               command:
