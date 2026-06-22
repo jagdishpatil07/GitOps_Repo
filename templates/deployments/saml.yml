@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: saml
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.namespace }}
   labels:
     service: saml
 
@@ -19,9 +19,9 @@ spec:
         service: saml
 
     spec:
-      serviceAccountName: {{ .Values.global.serviceAccountName }}
-
       securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
         fsGroup: 70070
 
       imagePullSecrets:
@@ -64,23 +64,14 @@ spec:
 
           securityContext:
             runAsUser: 70070
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
-
-          command:
-            - /bin/bash
-            - -c
-            - "uvicorn saml.asgi:application --port 9000 --host 0.0.0.0"
 
           ports:
-            - containerPort: 9000
-              protocol: TCP
+            - name: uvicorn
+              containerPort: 9000
 
+          ########################################################
+          # ✅ ENV FIXES (NUMBA + FONTCONFIG)
+          ########################################################
           env:
             - name: TZ
               value: "UTC"
@@ -91,11 +82,9 @@ spec:
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
-            # ✅ Fix numba cache
             - name: NUMBA_CACHE_DIR
               value: /tmp
 
-            # ✅ Fix fontconfig cache (your error)
             - name: XDG_CACHE_HOME
               value: /tmp/.cache
 
@@ -104,6 +93,10 @@ spec:
 
             - name: FONTCONFIG_FILE
               value: /etc/fonts/fonts.conf
+
+            # ✅ force single worker
+            - name: WEB_CONCURRENCY
+              value: "1"
 
           envFrom:
             - configMapRef:
@@ -137,25 +130,50 @@ spec:
             - name: logs-storage
               mountPath: /opt/revolutio/logs
 
-          startupProbe:
-            exec:
-              command:
-                - /bin/bash
-                - -c
-                - "/opt/revolutio/healthcheck.sh 9000"
-            failureThreshold: 30
-            periodSeconds: 10
+          ########################################################
+          # ✅ SAME PATTERN AS WEB (BOOTSTRAP + SINGLE WORKER)
+          ########################################################
+          command:
+            - /bin/bash
+          args:
+            - -c
+            - |
+              echo "====== SAML BOOTSTRAP START ======"
 
+              # start original script if needed
+              if [ -f /Installation_ref/scripts/start ]; then
+                /Installation_ref/scripts/start &
+              fi
+
+              # wait for init
+              sleep 20
+
+              echo "====== STARTING SAML SINGLE WORKER ======"
+
+              # kill any existing uvicorn/gunicorn
+              pkill -f uvicorn || true
+              pkill -f gunicorn || true
+
+              # run SINGLE worker
+              exec uvicorn saml.asgi:application \
+                --host 0.0.0.0 \
+                --port 9000 \
+                --workers 1 \
+                --lifespan off \
+                --timeout-keep-alive 60 \
+                --log-level info
+
+          ########################################################
+          # ✅ PROBES (same style)
+          ########################################################
           readinessProbe:
             exec:
               command:
                 - /bin/bash
                 - -c
                 - "/opt/revolutio/healthcheck.sh 9000"
-            initialDelaySeconds: 30
-            timeoutSeconds: 30
-            periodSeconds: 60
-            failureThreshold: 5
+            initialDelaySeconds: 120
+            periodSeconds: 20
 
           livenessProbe:
             exec:
@@ -163,11 +181,11 @@ spec:
                 - /bin/bash
                 - -c
                 - "/opt/revolutio/healthcheck.sh 9000"
-            initialDelaySeconds: 60
-            timeoutSeconds: 30
-            periodSeconds: 60
-            failureThreshold: 5
+            initialDelaySeconds: 120
+            periodSeconds: 30
 
-      restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
+
+  strategy:
+    type: RollingUpdate
