@@ -19,8 +19,8 @@ data:
   WEB_CONCURRENCY: '4'
 
   # ✅ FIXED (ONLY CHANGE)
-  CSRF_TRUSTED_ORIGINS: 'http://4.240.124.84,https://4.240.124.84'
-  CORS_ALLOWED_ORIGINS: 'http://4.240.124.84,https://4.240.124.84'
+  CSRF_TRUSTED_ORIGINS: 'http://4.240.124.84,https://4.240.124.84,http://abc.revolutio.local,https://abc.revolutio.local'
+  CORS_ALLOWED_ORIGINS: 'http://4.240.124.84,https://4.240.124.84,http://abc.revolutio.local,https://abc.revolutio.local'
   REDIS_URL: 'redis://:redissecretpassword@redis:6379/0'
   CLEAR_CACHE_ON_STARTUP: 'true'
   REDIS_HOST: redis
