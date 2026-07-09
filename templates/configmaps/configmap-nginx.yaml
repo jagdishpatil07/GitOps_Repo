@@ -73,10 +73,10 @@ data:
         }
 
         # Put in all the allowed hosts separated by |
-        if ( $host !~* ^(4.240.124.84)$ ) {
+        if ( $host !~* ^(4.240.124.84|abc.revolutio.local)$  ) {
             return 403;
         }
-        if ( $http_host !~* ^(4.240.124.84:30007|4.240.124.84:8080)) {
+        if ( $http_host !~* ^(4.240.124.84:30007|4.240.124.84:8080|abc.revolutio.local:32719)$ ) {
             return 403;
         }
         listen 443 ssl;
