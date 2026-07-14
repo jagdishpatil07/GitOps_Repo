@@ -29,9 +29,6 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
-      ########################################################
-      
-      ########################################################
       volumes:
         - name: platformconfig-storage
           persistentVolumeClaim:
@@ -49,9 +46,6 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.saml.pvc.assets }}
 
-      ########################################################
-      # CONTAINER
-      ########################################################
       containers:
         - name: saml
           image: "{{ .Values.saml.image }}"
@@ -59,29 +53,22 @@ spec:
 
           securityContext:
             runAsUser: 70070
+            allowPrivilegeEscalation: false
 
-          ########################################################
-          # 
-          ########################################################
           resources:
             requests:
               cpu: {{ .Values.saml.resources.requests.cpu }}
               memory: {{ .Values.saml.resources.requests.memory }}
+
             limits:
               cpu: {{ .Values.saml.resources.limits.cpu }}
               memory: {{ .Values.saml.resources.limits.memory }}
 
-          ########################################################
-          #  PORT
-          ########################################################
           ports:
             - name: uvicorn
               containerPort: 9000
               protocol: TCP
 
-          ########################################################
-          # ENV
-          ########################################################
           env:
             - name: TZ
               value: "UTC"
@@ -92,22 +79,22 @@ spec:
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
-          ########################################################
-          #  ENV FROM VALUES
-          ########################################################
+            - name: DATABASE_URL
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
+
           envFrom:
             - configMapRef:
                 name: {{ .Values.saml.configMaps.web }}
+
             - configMapRef:
                 name: {{ .Values.saml.configMaps.postgres }}
+
             - secretRef:
                 name: {{ .Values.saml.secrets.web }}
+
             - secretRef:
                 name: {{ .Values.saml.secrets.postgres }}
 
-          ########################################################
-          #  VOLUME MOUNTS
-          ########################################################
           volumeMounts:
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
@@ -121,43 +108,32 @@ spec:
             - name: assets-storage
               mountPath: /opt/revolutio/assets
 
-          ########################################################
-          # SINGLE WORKER 
-          ########################################################
-          command: ["uvicorn"]
-          args:
-            - "saml.asgi:application"
-            - "--host"
-            - "0.0.0.0"
-            - "--port"
-            - "9000"
-            - "--workers"
-            - "1"
+          command:
+            - /bin/bash
 
-          ########################################################
-          # 
-          ########################################################
+          args:
+            - -c
+            - |
+              exec uvicorn saml.asgi:application \
+                --host 0.0.0.0 \
+                --port 9000 \
+                --workers 1
+
           readinessProbe:
-            httpGet:
-              path: /readiness
-              port: uvicorn
-              scheme: HTTP
-            initialDelaySeconds: 180
-            timeoutSeconds: 40
-            periodSeconds: 220
-            failureThreshold: 4
-            successThreshold: 1
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 5
 
           livenessProbe:
-            httpGet:
-              path: /healthy
-              port: uvicorn
-              scheme: HTTP
-            initialDelaySeconds: 180
-            timeoutSeconds: 60
-            periodSeconds: 20
-            successThreshold: 1
-            failureThreshold: 4
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 120
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 5
 
           terminationMessagePath: /tmp/web-log
           terminationMessagePolicy: File
