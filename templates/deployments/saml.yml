@@ -120,16 +120,20 @@ spec:
                 --workers 1
 
           readinessProbe:
-            tcpSocket:
-              port: 9000
+            httpGet:
+              path: /accounts/saml/health/
+              port: uvicorn
+              scheme: HTTP
             initialDelaySeconds: 60
             timeoutSeconds: 5
             periodSeconds: 30
             failureThreshold: 5
 
           livenessProbe:
-            tcpSocket:
-              port: 9000
+            httpGet:
+              path: /accounts/saml/health/
+              port: uvicorn
+              scheme: HTTP
             initialDelaySeconds: 120
             timeoutSeconds: 5
             periodSeconds: 30
