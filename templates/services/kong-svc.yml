@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong
+  namespace: myapp
+spec:
+  selector:
+    app: kong
+  ports:
+    - name: proxy
+      port: 8002
+      targetPort: 8002
+
+    - name: admin
+      port: 8001
+      targetPort: 8001
+
+    - name: status
+      port: 8100
+      targetPort: 8100
