@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-api
+  namespace: myapp
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: dashboard-api
+
+  template:
+    metadata:
+      labels:
+        app: dashboard-api
+
+    spec:
+      containers:
+      - name: dashboard-api
+
+        image: revolutio.azurecr.io/revolutio_kubernetes/dashboard-api:latest
+
+        imagePullPolicy: Always
+
+        command:
+          - /start.sh
+
+        ports:
+        - containerPort: 5002
+
+        envFrom:
+        - configMapRef:
+            name: envs-production-web
+
+        - secretRef:
+            name: secrets-production-postgres-new
+
+        - secretRef:
+            name: secrets-production-redis
+
+        volumeMounts:
+        - name: platform-configs
+          mountPath: /workspace/allowed_host.txt
+          subPath: allowed_host.txt
+
+      volumes:
+      - name: platform-configs
+        persistentVolumeClaim:
+          claimName: platform-configs-pvc-1
