@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: kafka
+  name: kafka-svc
   namespace: myapp
 spec:
   selector:
@@ -10,3 +10,4 @@ spec:
     - name: kafka
       port: 9092
       targetPort: 9092
+      protocol: TCP
