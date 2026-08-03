@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datahub-api
+  namespace: myapp
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: datahub-api
+
+  template:
+    metadata:
+      labels:
+        app: datahub-api
+
+    spec:
+
+      containers:
+      - name: datahub-api
+
+        image: revolutio.azurecr.io/revolutio_kubernetes/datahub-api:latest
+        imagePullPolicy: Always
+
+        command:
+          - bash
+          - -c
+          - uvicorn app.main:app --host 0.0.0.0 --port 5003 --workers 9
+
+        ports:
+        - containerPort: 5003
+
+        envFrom:
+        - configMapRef:
+            name: envs-production-web
+
+        - secretRef:
+            name: secrets-production-postgres-new
+
+        - secretRef:
+            name: secrets-production-redis
+
+        volumeMounts:
+
+        - name: platform-configs
+          mountPath: /app/Platform_Configs
+
+        - name: assets
+          mountPath: /app/assets
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5003
+          initialDelaySeconds: 60
+          periodSeconds: 30
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5003
+          initialDelaySeconds: 120
+          periodSeconds: 30
+
+      volumes:
+
+      - name: platform-configs
+        persistentVolumeClaim:
+          claimName: platform-configs-pvc-1
+
+      - name: assets
+        persistentVolumeClaim:
+          claimName: static-pvc-1
