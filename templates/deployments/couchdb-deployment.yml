@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: couchdb
+  namespace: myapp
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: couchdb
+
+  template:
+    metadata:
+      labels:
+        app: couchdb
+
+    spec:
+      containers:
+      - name: couchdb
+        image: revolutio.azurecr.io/revolutio_kubernetes/couchdb:latest
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 5984
+
+        env:
+        - name: COUCHDB_USER
+          valueFrom:
+            secretKeyRef:
+              name: couchdb-secret
+              key: COUCHDB_USER
+
+        - name: COUCHDB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: couchdb-secret
+              key: COUCHDB_PASSWORD
+
+        volumeMounts:
+        - name: couchdb-storage
+          mountPath: /opt/couchdb/data
+
+      volumes:
+      - name: couchdb-storage
+        persistentVolumeClaim:
+          claimName: couchdb-pvc-1
