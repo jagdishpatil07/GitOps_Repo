@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datahubapp
+  namespace: myapp
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: datahubapp
+
+  template:
+    metadata:
+      labels:
+        app: datahubapp
+
+    spec:
+      containers:
+      - name: datahubapp
+
+        image: revolutio.azurecr.io/revolutio_kubernetes/datahub:latest
+
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 3003
+
+        env:
+        - name: NODE_ENV
+          value: production
+
+        - name: CHOKIDAR_USEPOLLING
+          value: "true"
+
+        envFrom:
+        - configMapRef:
+            name: envs-production-web
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3003
+          initialDelaySeconds: 60
+          periodSeconds: 20
