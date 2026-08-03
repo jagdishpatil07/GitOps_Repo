@@ -45,7 +45,7 @@ data:
   CORS_ALLOWED_ORIGIN_REGEXES: '^https://\w+\.omantel\.om$'
   ALLOWED_HOSTS: "*"
   DJANGO_SESSION_COOKIE_SAMESITE: "Lax"
-  FERNET_SECRET: "IozSZydaPuzwwHunI_SuUP31g9UP0oCjvQn9mrs"
+  FERNET_SECRET: "IozSZydaPuzwwHunI_SuUP31g9UP0oCjvQn9mrs1vac="
   SERVER_NAME: "abc.revolutio.local acies.test *.acies.test"
   
   # ✅ FIXED (Optional)
