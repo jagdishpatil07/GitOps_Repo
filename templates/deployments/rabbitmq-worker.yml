@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq-worker
+  namespace: myapp
+spec:
+  replicas: 5
+
+  selector:
+    matchLabels:
+      app: rabbitmq-worker
+
+  template:
+    metadata:
+      labels:
+        app: rabbitmq-worker
+
+    spec:
+      containers:
+      - name: rabbitmq-worker
+
+        image: revolutio.azurecr.io/revolutio_kubernetes/datahub-api:latest
+        imagePullPolicy: Always
+
+        command:
+          - bash
+          - /wait-for-rabbit.sh
+
+        envFrom:
+        - configMapRef:
+            name: envs-production-web
+
+        - secretRef:
+            name: secrets-production-postgres-new
+
+        - secretRef:
+            name: secrets-production-redis
+
+        volumeMounts:
+        - name: platform-configs
+          mountPath: /app/Platform_Configs
+
+        - name: assets
+          mountPath: /app/assets
+
+      volumes:
+      - name: platform-configs
+        persistentVolumeClaim:
+          claimName: platform-configs-pvc-1
+
+      - name: assets
+        persistentVolumeClaim:
+          claimName: static-pvc-1
