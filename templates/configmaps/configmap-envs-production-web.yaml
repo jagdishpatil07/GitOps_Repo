@@ -50,7 +50,8 @@ data:
   
   # ✅ FIXED (Optional)
   DJANGO_ALLOWED_HOSTS: '*'
-  POSTGRES_HOST: pgbouncer1-new
+  #POSTGRES_HOST: pgbouncer1-new
+  POSTGRES_HOST: pgbouncer-service
   POSTGRES_DB: Platform_DB
   POSTGRES_USER: revolutio
   POSTGRES_PORT: '5432'
