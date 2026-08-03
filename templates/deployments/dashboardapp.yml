@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboardapp
+  namespace: myapp
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: dashboardapp
+
+  template:
+    metadata:
+      labels:
+        app: dashboardapp
+
+    spec:
+      containers:
+      - name: dashboardapp
+
+        image: revolutio.azurecr.io/revolutio_kubernetes/dashboard:latest
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 3002
+
+        envFrom:
+        - configMapRef:
+            name: envs-production-web
+
+        - secretRef:
+            name: secrets-production-web
+
+        readinessProbe:
+          tcpSocket:
+            port: 3002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+        livenessProbe:
+          tcpSocket:
+            port: 3002
+          initialDelaySeconds: 60
+          periodSeconds: 20
