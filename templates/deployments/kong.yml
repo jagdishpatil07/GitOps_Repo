@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+  namespace: myapp
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: kong
+
+  template:
+    metadata:
+      labels:
+        app: kong
+
+    spec:
+      containers:
+      - name: kong
+
+        image: revolutio.azurecr.io/revolutio_kubernetes/kong:latest
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8001
+        - containerPort: 8002
+        - containerPort: 8100
+
+        envFrom:
+        - configMapRef:
+            name: envs-production-web
+
+        - secretRef:
+            name: secrets-production-redis
+
+        readinessProbe:
+          tcpSocket:
+            port: 8002
+          initialDelaySeconds: 30
+
+        livenessProbe:
+          tcpSocket:
+            port: 8002
+          initialDelaySeconds: 60
