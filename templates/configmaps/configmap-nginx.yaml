@@ -140,10 +140,6 @@ data:
         location /static/ {
             alias /var/www/revolutio/static/;
         }
-        location /datahub-api/
-        {
-          proxy_pass
-        }
         location /media/ {
             alias /var/www/revolutio/media/;
         }
