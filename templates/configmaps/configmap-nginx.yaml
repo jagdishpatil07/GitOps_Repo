@@ -70,14 +70,7 @@ data:
       {
         server kong:8002;
       }
-      upstream revolutio_web_builder
-      {
-        server web-builder:3000;
-      }
-      upstream revolutio_web_builder_api
-      {
-        server web-builder-api:5001;
-      }
+
       upstream revolutio_saml
       {
         server saml:9000;
