@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: kong
   namespace: myapp
+
 spec:
   replicas: 1
 
@@ -26,6 +27,10 @@ spec:
         - containerPort: 8001
         - containerPort: 8002
         - containerPort: 8100
+
+        env:
+        - name: KONG_DECLARATIVE_CONFIG
+          value: /etc/kong/kong.yml
 
         envFrom:
         - configMapRef:
