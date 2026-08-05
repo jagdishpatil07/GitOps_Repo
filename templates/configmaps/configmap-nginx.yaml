@@ -70,6 +70,11 @@ data:
       {
         server kong:8002;
       }
+      upstream datahub_api_upstream
+      {
+        server datahub-api:5003;
+       keepalive 64;
+      }
 
       upstream revolutio_saml
       {
