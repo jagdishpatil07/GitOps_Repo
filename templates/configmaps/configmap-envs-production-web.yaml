@@ -76,6 +76,7 @@ data:
   KONG_LOG_LEVEL: debug
   KONG_ANONYMOUS_REPORTS: "off"
   KONG_REDIS_PASSWORD: redissecretpassword
+  KONG_NGINX_HTTP_LUA_SHARED_DICT: "rate_limit_store 10m"
   COUCHDB_HOST: couchdb
   COUCHDB_PORT: "5984"
   COUCHDB_USER: couchdb
