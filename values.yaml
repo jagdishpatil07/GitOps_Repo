@@ -52,7 +52,7 @@ rqscheduler:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
 #===========================================================
 
@@ -73,7 +73,7 @@ sockets:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     media: media-pvc-1
     computation: computation-storage-pvc-1
@@ -96,7 +96,7 @@ web:
     postgres: secrets-production-postgres-new
 
   pvc:
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     static: static-pvc-1
     media: media-pvc-1
     computation: computation-storage-pvc-1
@@ -120,7 +120,7 @@ worker:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
     media: media-pvc-1
@@ -153,7 +153,7 @@ workerAlerts:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
 
@@ -184,7 +184,7 @@ workerComputation0:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
     media: media-pvc-1
@@ -216,7 +216,7 @@ workerComputation1:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
     media: media-pvc-1
@@ -247,7 +247,7 @@ workerDataUpload0:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
     media: media-pvc-1
@@ -279,7 +279,7 @@ workerNavbar:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
     media: media-pvc-1
@@ -311,7 +311,7 @@ workerScheduler:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
     media: media-pvc-1
@@ -342,7 +342,7 @@ workerSchedulerSystem:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
     media: media-pvc-1
@@ -373,7 +373,7 @@ workerTenant:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
     media: media-pvc-1
@@ -442,7 +442,7 @@ workerAppMigration:
 
   pvc:
     static: static-pvc-1
-    templates: user-defined-template-pvc-1
+    templates: user-defined-template-pvc-2
     platformConfigs: platform-configs-pvc-1
     computation: computation-storage-pvc-1
     media: media-pvc-1
