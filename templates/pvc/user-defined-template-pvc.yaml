@@ -1,16 +1,17 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: user-defined-template-pvc-1
+  name: user-defined-template-pvc-2
   namespace: myapp
 
 spec:
   accessModes:
     - ReadWriteMany
 
+
   storageClassName: ""
 
-  volumeName: user-defined-template-pv-1   # ✅ STRICT BINDING
+  volumeName: user-defined-template-pv-2
 
   resources:
     requests:
