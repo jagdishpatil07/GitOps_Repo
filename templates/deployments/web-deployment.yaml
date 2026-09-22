@@ -119,7 +119,7 @@ spec:
             - "--port"
             - "5000"
             - "--workers"
-             - "2"
+            - "2"
 
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
