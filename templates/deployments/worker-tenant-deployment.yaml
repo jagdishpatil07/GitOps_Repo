@@ -33,7 +33,7 @@ spec:
 
       containers:
         - name: worker-tenant
-          image: revolutio.azurecr.io/revolutio_kubernetes/web:latest
+          image: image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
           imagePullPolicy: Always
 
           args:
