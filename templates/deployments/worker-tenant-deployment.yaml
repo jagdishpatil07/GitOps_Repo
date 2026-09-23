@@ -49,6 +49,9 @@ spec:
         - name: OPENBAO_CACERT
           value: "/shared-certs/tls.crt"
 
+        - name: OPENBAO_ROLE_ID
+          value: "revolutio-app"
+
         - name: OPENBAO_SECRET_ID_FILE
           value: "/openbao/approle-secrets/revolutio-app/secret_id"
 
