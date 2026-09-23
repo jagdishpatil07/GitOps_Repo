@@ -19,7 +19,6 @@ spec:
     spec:
       containers:
       - name: openbao
-
         image: revolutio.azurecr.io/revolutio_kubernetes/openbao:latest
         imagePullPolicy: IfNotPresent
 
@@ -30,16 +29,7 @@ spec:
         ports:
         - containerPort: 8200
 
-        resources:
-          requests:
-            cpu: "250m"
-            memory: "256Mi"
-          limits:
-            cpu: "1"
-            memory: "512Mi"
-
         volumeMounts:
-
         - name: openbao-data
           mountPath: /openbao/data
 
@@ -79,9 +69,6 @@ spec:
         - name: approle-datahub-api
           mountPath: /openbao/approle-secrets/datahub-api
 
-        - name: approle-rls-api
-          mountPath: /openbao/approle-secrets/rls-api
-
         - name: approle-postgres-backup
           mountPath: /openbao/approle-secrets/postgres-backup
 
@@ -97,32 +84,18 @@ spec:
         - name: approle-rabbitmq
           mountPath: /openbao/approle-secrets/rabbitmq
 
-        - name: approle-oracle-app
-          mountPath: /openbao/approle-secrets/oracle-app
-
-        - name: approle-web-builder-api
-          mountPath: /openbao/approle-secrets/web-builder-api
-
-        - name: approle-clickhouse
-          mountPath: /openbao/approle-secrets/clickhouse
-
-        - name: approle-otel-collector
-          mountPath: /openbao/approle-secrets/otel-collector
-
-        - name: approle-pgbouncer-exporter
-          mountPath: /openbao/approle-secrets/pgbouncer-exporter
-
-        - name: approle-observability-api
-          mountPath: /openbao/approle-secrets/observability-api
-
         - name: approle-platform-migrator
           mountPath: /openbao/approle-secrets/platform-migrator
 
-        - name: approle-benchmark-runner
-          mountPath: /openbao/approle-secrets/benchmark-runner
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 512Mi
 
       volumes:
-
       - name: openbao-data
         persistentVolumeClaim:
           claimName: openbao-data-pvc-1
