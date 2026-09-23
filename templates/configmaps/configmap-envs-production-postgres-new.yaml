@@ -10,4 +10,4 @@ data:
   POSTGRES_HOST: pgbouncer-service
   POSTGRES_HOST_INNER: postgres15-new
   POSTGRES_PORT: "5432"
-  POSTGRES_USER: revolutio
+  POSTGRES_USER: platform_app
