@@ -57,6 +57,8 @@ spec:
 
         #- name: OPENBAO_SECRETS
         #  value: "DJANGO_SECRET_KEY=django/secret_key,POSTGRES_PASSWORD=postgres-core/platform_app"
+        - name: OPENBAO_SECRETS
+          value: "DJANGO_SECRET_KEY=django/secret_key"
 
         envFrom:
         - configMapRef:
