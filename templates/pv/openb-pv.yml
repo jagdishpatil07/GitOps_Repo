@@ -1,0 +1,283 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-data-pv-1
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-data
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-init-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-init
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-tls-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-tls
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: shared-certs-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/shared-certs
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-postgres-core-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-postgres-core
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-redis-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-redis
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-keydb-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-keydb
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-couchdb-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-couchdb
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-revolutio-app-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-revolutio-app
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-pgbouncer1-new-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-pgbouncer1-new
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-pgbouncer1-app-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-pgbouncer1-app
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-dashboard-api-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-dashboard-api
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-datahub-api-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-datahub-api
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-postgres-backup-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-postgres-backup
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-pgbackrest-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-pgbackrest
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-rqscheduler-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-rqscheduler
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-kong-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-kong
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-rabbitmq-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-rabbitmq
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-approle-platform-migrator-pv-1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-approle-platform-migrator
