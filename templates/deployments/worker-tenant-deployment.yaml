@@ -2,12 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: worker-tenant
-  namespace: {{ .Values.namespace }}
+  namespace: myapp
   labels:
     app: worker-tenant
 
 spec:
-  replicas: {{ .Values.workerTenant.replicaCount }}
+  replicas: 1
 
   selector:
     matchLabels:
@@ -29,53 +29,76 @@ spec:
 
     spec:
       imagePullSecrets:
-        - name: {{ .Values.global.imagePullSecrets.name }}
-
-      securityContext: {}
+        - name: acr-secret
 
       containers:
         - name: worker-tenant
-          image: "{{ .Values.workerTenant.image }}"
+          image: revolutio.azurecr.io/revolutio_kubernetes/web:latest
           imagePullPolicy: Always
 
           args:
             - /rqworker/start-tenant
 
-          resources:
-            requests:
-              cpu: {{ .Values.workerTenant.resources.requests.cpu }}
-              memory: {{ .Values.workerTenant.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.workerTenant.resources.limits.cpu }}
-              memory: {{ .Values.workerTenant.resources.limits.memory }}
-
           env:
             - name: DATABASE_URL
-              value: {{ .Values.workerTenant.databaseUrl | quote }}
+              value: "postgresql://platform_app:<password>@pgbouncer-service:5432/platform"
+
             - name: REDIS_URL
-              value: {{ .Values.workerTenant.redisUrl | quote }}
+              value: "redis://redis:6379/0"
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/shared-certs/tls.crt"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao/approle-secrets/revolutio-app/secret_id"
 
           envFrom:
             - configMapRef:
-                name: {{ .Values.workerTenant.configMaps.web }}
+                name: web-config
+
             - configMapRef:
-                name: {{ .Values.workerTenant.configMaps.postgres }}
+                name: postgres-config
+
             - secretRef:
-                name: {{ .Values.workerTenant.secrets.web }}
+                name: web-secret
+
             - secretRef:
-                name: {{ .Values.workerTenant.secrets.postgres }}
+                name: postgres-secret
 
           volumeMounts:
             - name: static-storage
               mountPath: /opt/revolutio/static
+
             - name: templates-storage
               mountPath: /opt/revolutio/Core/templates/user_defined_template
+
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
+
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
+
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
+
+            - name: openbao-approle-revolutio-app
+              mountPath: /openbao/approle-secrets/revolutio-app
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /shared-certs
+              readOnly: true
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
 
           securityContext:
             allowPrivilegeEscalation: false
@@ -87,23 +110,31 @@ spec:
       volumes:
         - name: static-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerTenant.pvc.static }}
+            claimName: static-pvc-1
 
         - name: templates-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerTenant.pvc.templates }}
+            claimName: user-defined-template-pvc-2
 
         - name: platformconfig-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerTenant.pvc.platformConfigs }}
+            claimName: platform-configs-pvc-1
 
         - name: computation-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerTenant.pvc.computation }}
+            claimName: computation-storage-pvc-1
 
         - name: media-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerTenant.pvc.media }}
+            claimName: media-pvc-1
+
+        - name: openbao-approle-revolutio-app
+          persistentVolumeClaim:
+            claimName: openbao-approle-revolutio-app-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
 
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
