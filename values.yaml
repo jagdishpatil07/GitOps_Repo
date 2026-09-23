@@ -83,7 +83,7 @@ sockets:
 web:
   replicaCount: 1
 
-  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:bod
 
   databaseUrl: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
 
