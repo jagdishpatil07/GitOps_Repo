@@ -26,7 +26,6 @@ spec:
 
       containers:
         - name: postgres-core
-
           image: revolutio.azurecr.io/revolutio_kubernetes/postgres:18-bookworm
           imagePullPolicy: Always
 
@@ -39,15 +38,34 @@ spec:
             - hba_file=/etc/postgresql/pg_hba.conf
 
           ports:
-            - containerPort: 5432
-              name: postgres
+            - name: postgres
+              containerPort: 5432
 
           env:
+
             - name: POSTGRES_PASSWORD
               value: "TempTest123!"
 
+            - name: PLATFORM_APP_PASSWORD
+              value: "TempPlatform123!"
+
+            - name: APP_DB_APP_PASSWORD
+              value: "TempApp123!"
+
+            - name: WORKSPACE_APP_PASSWORD
+              value: "TempWorkspace123!"
+
+            - name: HEALTH_CHECK_PASSWORD
+              value: "TempHealth123!"
+
+            - name: PGBR_PASSWORD
+              value: "TempPgbr123!"
+
+            - name: PGBACKREST_REPO1_CIPHER_PASS
+              value: "TempCipher123!"
+
             - name: POSTGRES_DB
-              value: "postgres"
+              value: postgres
 
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
@@ -57,6 +75,27 @@ spec:
 
             - name: PG_EXTENSIONS
               value: "pg_stat_statements"
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "postgres-core"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_ENV_FILE
+              value: "/var/run/openbao-env.sh"
+
+            - name: OPENBAO_WRAPPED_ENTRYPOINT
+              value: "/usr/local/bin/ensure-extensions-entrypoint.sh"
+
+            - name: OPENBAO_SECRETS
+              value: "POSTGRES_PASSWORD=postgres-core/admin,PLATFORM_APP_PASSWORD=postgres-core/platform_app,APP_DB_APP_PASSWORD=postgres-core/app_db_app,WORKSPACE_APP_PASSWORD=postgres-core/workspace_app,HEALTH_CHECK_PASSWORD=postgres-core/health_check,PGBR_PASSWORD=postgres-core/pgbackrest,PGBACKREST_REPO1_CIPHER_PASS=postgres-core/pgbackrest_cipher"
 
           resources:
             requests:
@@ -92,6 +131,14 @@ spec:
             - name: postgres-socket
               mountPath: /var/run/postgresql
 
+            - name: openbao-approle
+              mountPath: /openbao-approle
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
           readinessProbe:
             exec:
               command:
@@ -115,6 +162,7 @@ spec:
             periodSeconds: 20
 
       volumes:
+
         - name: postgres-data
           persistentVolumeClaim:
             claimName: postgresql-data-core-pvc
@@ -126,3 +174,11 @@ spec:
         - name: postgres-socket
           persistentVolumeClaim:
             claimName: postgres-core-socket-pvc
+
+        - name: openbao-approle
+          persistentVolumeClaim:
+            claimName: openbao-approle-postgres-core-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
