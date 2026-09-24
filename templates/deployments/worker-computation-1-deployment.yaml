@@ -1,13 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: worker-computation-1
-  namespace: {{ .Values.namespace }}
+  namespace: myapp
   labels:
     app: worker-computation-1
 
 spec:
-  replicas: {{ .Values.workerComputation1.replicaCount }}
+  replicas: 1
 
   selector:
     matchLabels:
@@ -29,41 +30,81 @@ spec:
 
     spec:
       imagePullSecrets:
-        - name: {{ .Values.global.imagePullSecrets.name }}
+        - name: acr-secret
 
       securityContext: {}
 
       containers:
         - name: worker-computation-1
-          image: "{{ .Values.workerComputation1.image }}"
+
+          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
           imagePullPolicy: Always
 
           args:
             - /rqworker/start-computation-1
 
-          resources:
-            requests:
-              cpu: {{ .Values.workerComputation1.resources.requests.cpu }}
-              memory: {{ .Values.workerComputation1.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.workerComputation1.resources.limits.cpu }}
-              memory: {{ .Values.workerComputation1.resources.limits.memory }}
-
           env:
             - name: DATABASE_URL
-              value: {{ .Values.workerComputation1.databaseUrl | quote }}
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
+
             - name: REDIS_URL
-              value: {{ .Values.workerComputation1.redisUrl | quote }}
+              value: "$(REDIS_URL)"
+
+            - name: TZ
+              value: "UTC"
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/shared-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "revolutio-app"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao/approle-secrets/revolutio-app/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: >-
+                DJANGO_SECRET_KEY=django/secret_key,
+                DJANGO_FERNET_SECRET=django/fernet_secret,
+                DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,
+                DJANGO_SUPERUSER_PASSWORD=django/superuser_password,
+                POSTGRES_PASSWORD=postgres-core/platform_app,
+                REDIS_PASSWORD=cache/redis,
+                REDIS_PASSWORD_SCHEDULER=cache/redis_scheduler,
+                KEYDB_PASSWORD=cache/keydb,
+                COUCHDB_PASSWORD=couchdb/admin
+
+            - name: OPENBAO_URL_TEMPLATES
+              value: >-
+                REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
+                REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD_SCHEDULER}@redis-scheduler:6379/0,
+                REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
 
           envFrom:
             - configMapRef:
-                name: {{ .Values.workerComputation1.configMaps.web }}
+                name: envs-production-web
+
             - configMapRef:
-                name: {{ .Values.workerComputation1.configMaps.postgres }}
-            - secretRef:
-                name: {{ .Values.workerComputation1.secrets.web }}
-            - secretRef:
-                name: {{ .Values.workerComputation1.secrets.postgres }}
+                name: envs-production-postgres-core
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
 
           volumeMounts:
             - name: static-storage
@@ -81,33 +122,42 @@ spec:
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
 
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - ALL
+            - name: openbao-approle-revolutio-app
+              mountPath: /openbao/approle-secrets/revolutio-app
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /shared-certs
+              readOnly: true
 
       volumes:
         - name: static-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerComputation1.pvc.static }}
+            claimName: static-pvc-1
 
         - name: templates-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerComputation1.pvc.templates }}
+            claimName: user-defined-template-pvc-2
 
         - name: platformconfig-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerComputation1.pvc.platformConfigs }}
+            claimName: platform-configs-pvc-1
 
         - name: computation-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerComputation1.pvc.computation }}
+            claimName: computation-storage-pvc-1
 
         - name: media-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerComputation1.pvc.media }}
+            claimName: media-pvc-1
+
+        - name: openbao-approle-revolutio-app
+          persistentVolumeClaim:
+            claimName: openbao-approle-revolutio-app-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
 
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
