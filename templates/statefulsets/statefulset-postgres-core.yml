@@ -42,27 +42,6 @@ spec:
               containerPort: 5432
 
           env:
-            - name: POSTGRES_PASSWORD
-              value: "TempTest123!"
-
-            - name: PLATFORM_APP_PASSWORD
-              value: "TempPlatform123!"
-
-            - name: APP_DB_APP_PASSWORD
-              value: "TempApp123!"
-
-            - name: WORKSPACE_APP_PASSWORD
-              value: "TempWorkspace123!"
-
-            - name: HEALTH_CHECK_PASSWORD
-              value: "TempHealth123!"
-
-            - name: PGBR_PASSWORD
-              value: "TempPgbr123!"
-
-            - name: PGBACKREST_REPO1_CIPHER_PASS
-              value: "TempCipher123!"
-
             - name: POSTGRES_DB
               value: "postgres"
 
