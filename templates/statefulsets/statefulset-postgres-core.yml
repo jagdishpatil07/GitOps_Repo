@@ -29,14 +29,6 @@ spec:
           image: revolutio.azurecr.io/revolutio_kubernetes/postgres:18-bookworm
           imagePullPolicy: Always
 
-          command:
-            - docker-entrypoint.sh
-            - postgres
-            - -c
-            - config_file=/etc/postgresql/postgresql.conf
-            - -c
-            - hba_file=/etc/postgresql/pg_hba.conf
-
           ports:
             - name: postgres
               containerPort: 5432
