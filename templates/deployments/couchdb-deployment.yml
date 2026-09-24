@@ -59,24 +59,23 @@ spec:
             - name: TZ
               value: "UTC"
 
+            - name: COUCHDB_USER
+              value: "couchdb"
+
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
             - name: OPENBAO_CACERT
-              value: "/shared-certs/tls.crt"
+              value: "/openbao-certs/tls.crt"
 
             - name: OPENBAO_ROLE_ID
-              value: "revolutio-app"
-
-            - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/revolutio-app/secret_id"
-
-            - name: COUCHDB_USER
               value: "couchdb"
 
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
             - name: OPENBAO_SECRETS
-              value: >-
-                COUCHDB_PASSWORD=couchdb/admin
+              value: "COUCHDB_PASSWORD=couchdb/admin"
 
           resources:
             requests:
@@ -93,27 +92,33 @@ spec:
             periodSeconds: 10
 
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /_up
               port: 5984
+              scheme: HTTP
             initialDelaySeconds: 20
             periodSeconds: 10
+            timeoutSeconds: 5
 
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /_up
               port: 5984
+              scheme: HTTP
             initialDelaySeconds: 60
             periodSeconds: 20
+            timeoutSeconds: 5
 
           volumeMounts:
             - name: couchdb-storage
               mountPath: /opt/couchdb/data
 
-            - name: openbao-approle-revolutio-app
-              mountPath: /openbao/approle-secrets/revolutio-app
+            - name: openbao-approle-couchdb
+              mountPath: /openbao-approle
               readOnly: true
 
             - name: shared-certs
-              mountPath: /shared-certs
+              mountPath: /openbao-certs
               readOnly: true
 
       volumes:
@@ -121,9 +126,9 @@ spec:
           persistentVolumeClaim:
             claimName: couchdb-pvc-1
 
-        - name: openbao-approle-revolutio-app
+        - name: openbao-approle-couchdb
           persistentVolumeClaim:
-            claimName: openbao-approle-revolutio-app-pvc-1
+            claimName: openbao-approle-couchdb-pvc-1
 
         - name: shared-certs
           persistentVolumeClaim:
