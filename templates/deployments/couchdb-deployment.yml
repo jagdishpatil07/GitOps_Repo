@@ -29,10 +29,6 @@ spec:
         app: couchdb
 
     spec:
-      securityContext:
-        runAsUser: 70070
-        runAsNonRoot: true
-        fsGroup: 70070
 
       imagePullSecrets:
         - name: acr-secret
@@ -42,13 +38,7 @@ spec:
           image: revolutio.azurecr.io/revolutio_kubernetes/couchdb:latest
           imagePullPolicy: Always
 
-          securityContext:
-            runAsUser: 70070
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
+
 
           ports:
             - name: couchdb
