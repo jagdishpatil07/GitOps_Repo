@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgresql-data-core-pv
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: <NFS_SERVER_IP>
+    path: /data/nfs/postgresql-data-core
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgresql-backup-core-pv
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: <NFS_SERVER_IP>
+    path: /data/nfs/postgresql-backup-core
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-core-socket-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: <NFS_SERVER_IP>
+    path: /data/nfs/postgres-core-socket
