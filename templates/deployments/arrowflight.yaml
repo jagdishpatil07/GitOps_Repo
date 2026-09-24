@@ -1,17 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: arrowflight
-  namespace: {{ .Values.namespace }}
+  namespace: myapp
   labels:
     service: arrowflight
 
 spec:
-  replicas: {{ .Values.arrowflight.replicaCount }}
+  replicas: 1
 
   selector:
     matchLabels:
       service: arrowflight
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
 
   template:
     metadata:
@@ -29,29 +39,94 @@ spec:
 
       containers:
         - name: arrowflight
-          image: "{{ .Values.arrowflight.image }}"
+          image: revolutio.azurecr.io/revolutio_kubernetes/arrowflight:latest
           imagePullPolicy: Always
 
+          securityContext:
+            runAsUser: 70070
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+          ports:
+            - name: grpc
+              containerPort: 8815
+              protocol: TCP
+
+          env:
+            - name: TZ
+              value: "UTC"
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/shared-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "revolutio-app"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao/approle-secrets/revolutio-app/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: >-
+                POSTGRES_PASSWORD=postgres-core/platform_app,
+                REDIS_PASSWORD=cache/redis,
+                KEYDB_PASSWORD=cache/keydb
+
+            - name: OPENBAO_URL_TEMPLATES
+              value: >-
+                REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
+                REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
+
           resources:
-            limits:
-              cpu: "2"
-              memory: 8Gi
             requests:
               cpu: "1"
-              memory: 4Gi
+              memory: "4Gi"
 
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
+            limits:
+              cpu: "2"
+              memory: "8Gi"
+
+          startupProbe:
+            tcpSocket:
+              port: 8815
+            failureThreshold: 30
+            periodSeconds: 10
+
+          readinessProbe:
+            tcpSocket:
+              port: 8815
+            initialDelaySeconds: 20
+            periodSeconds: 10
+
+          livenessProbe:
+            tcpSocket:
+              port: 8815
+            initialDelaySeconds: 60
+            periodSeconds: 20
+
+          volumeMounts:
+            - name: openbao-approle-revolutio-app
+              mountPath: /openbao/approle-secrets/revolutio-app
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /shared-certs
+              readOnly: true
 
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
 
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
+      volumes:
+        - name: openbao-approle-revolutio-app
+          persistentVolumeClaim:
+            claimName: openbao-approle-revolutio-app-pvc-1
 
-  revisionHistoryLimit: 10
-  progressDeadlineSeconds: 600
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
