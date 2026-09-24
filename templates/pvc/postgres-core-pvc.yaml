@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-data-core-pvc
+  namespace: myapp
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeName: postgresql-data-core-pv
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-backup-core-pvc
+  namespace: myapp
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeName: postgresql-backup-core-pv
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-core-socket-pvc
+  namespace: myapp
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeName: postgres-core-socket-pv
+  resources:
+    requests:
+      storage: 5Gi
