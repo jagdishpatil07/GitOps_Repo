@@ -4,9 +4,10 @@ metadata:
   name: postgresql-data-core-pvc
   namespace: myapp
 spec:
+  storageClassName: ""
+  volumeName: postgresql-data-core-pv
   accessModes:
     - ReadWriteMany
-  volumeName: postgresql-data-core-pv
   resources:
     requests:
       storage: 100Gi
@@ -18,9 +19,10 @@ metadata:
   name: postgresql-backup-core-pvc
   namespace: myapp
 spec:
+  storageClassName: ""
+  volumeName: postgresql-backup-core-pv
   accessModes:
     - ReadWriteMany
-  volumeName: postgresql-backup-core-pv
   resources:
     requests:
       storage: 100Gi
@@ -32,9 +34,10 @@ metadata:
   name: postgres-core-socket-pvc
   namespace: myapp
 spec:
+  storageClassName: ""
+  volumeName: postgres-core-socket-pv
   accessModes:
     - ReadWriteMany
-  volumeName: postgres-core-socket-pv
   resources:
     requests:
       storage: 5Gi
