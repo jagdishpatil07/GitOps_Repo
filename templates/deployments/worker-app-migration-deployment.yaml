@@ -5,14 +5,14 @@ metadata:
   name: worker-app-migration
   namespace: myapp
   labels:
-    app: worker-app-migration
+    service: worker-app-migration
 
 spec:
   replicas: 1
 
   selector:
     matchLabels:
-      app: worker-app-migration
+      service: worker-app-migration
 
   strategy:
     type: RollingUpdate
@@ -26,7 +26,7 @@ spec:
   template:
     metadata:
       labels:
-        app: worker-app-migration
+        service: worker-app-migration
 
     spec:
       restartPolicy: Always
@@ -40,99 +40,21 @@ spec:
         fsGroup: 70070
 
       containers:
-        - name: worker-app-migration
+        - name: rqworker
 
           image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
           imagePullPolicy: Always
 
-          args:
-            - /rqworker/start-app-migration
-
           securityContext:
-            runAsNonRoot: true
+            runAsUser: 70070
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
 
+          args:
+            - /rqworker/start-app-migration
+
           env:
             - name: DATABASE_URL
-              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
-
-            - name: TZ
-              value: "UTC"
-
-            - name: MALLOC_ARENA_MAX
-              value: "2"
-
-            - name: MKL_NUM_THREADS
-              value: "1"
-
-            - name: NUMEXPR_NUM_THREADS
-              value: "1"
-
-            - name: OMP_NUM_THREADS
-              value: "1"
-
-            - name: OPENBLAS_NUM_THREADS
-              value: "1"
-
-            - name: XDG_CACHE_HOME
-              value: "/opt/temp"
-
-            - name: OPENBAO_ADDR
-              value: "https://openbao:8200"
-
-            - name: OPENBAO_CACERT
-              value: "/shared-certs/tls.crt"
-
-            - name: OPENBAO_ROLE_ID
-              value: "revolutio-app"
-
-            - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/revolutio-app/secret_id"
-
-            - name: OPENBAO_SECRETS
-              value: >-
-                DJANGO_SECRET_KEY=django/secret_key,
-                DJANGO_FERNET_SECRET=django/fernet_secret,
-                DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,
-                DJANGO_SUPERUSER_PASSWORD=django/superuser_password,
-                POSTGRES_PASSWORD=postgres-core/platform_app,
-                REDIS_PASSWORD=cache/redis,
-                KEYDB_PASSWORD=cache/keydb,
-                COUCHDB_PASSWORD=couchdb/admin
-
-            - name: OPENBAO_URL_TEMPLATES
-              value: >-
-                REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
-                REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,
-                REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
-
-          envFrom:
-            - configMapRef:
-                name: envs-production-web
-
-            - configMapRef:
-                name: envs-production-postgres-core
-
-          resources:
-            requests:
-              cpu: "500m"
-              memory: "1Gi"
-            limits:
-              cpu: "1"
-              memory: "2Gi"
-
-          volumeMounts:
-            - name: static-storage
-              mountPath: /opt/revolutio/static
-
-            - name: templates-storage
-              mountPath: /opt/revolutio/Core/templates/user_defined_template
-
-            - name: platformconfig-storage
-              mountPath: /opt/revolutio/Platform_Configs
-
-            - name: computation-storage
-              
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)
