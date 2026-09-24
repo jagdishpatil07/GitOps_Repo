@@ -112,6 +112,8 @@ spec:
             exec:
               command:
                 - pg_isready
+                - -U
+                - health_check
                 - -h
                 - /var/run/postgresql
                 - -p
@@ -123,6 +125,8 @@ spec:
             exec:
               command:
                 - pg_isready
+                - -U
+                - health_check
                 - -h
                 - /var/run/postgresql
                 - -p
