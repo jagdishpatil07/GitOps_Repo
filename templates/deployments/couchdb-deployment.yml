@@ -39,7 +39,6 @@ spec:
 
       containers:
         - name: couchdb
-
           image: revolutio.azurecr.io/revolutio_kubernetes/couchdb:latest
           imagePullPolicy: Always
 
@@ -57,23 +56,32 @@ spec:
               protocol: TCP
 
           env:
-            - name: COUCHDB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: couchdb-secret
-                  key: COUCHDB_USER
+            - name: TZ
+              value: "UTC"
 
-            - name: COUCHDB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: couchdb-secret
-                  key: COUCHDB_PASSWORD
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/shared-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "revolutio-app"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao/approle-secrets/revolutio-app/secret_id"
+
+            - name: COUCHDB_USER
+              value: "couchdb"
+
+            - name: OPENBAO_SECRETS
+              value: >-
+                COUCHDB_PASSWORD=couchdb/admin
 
           resources:
             requests:
               cpu: "500m"
               memory: "1Gi"
-
             limits:
               cpu: "1"
               memory: "2Gi"
@@ -85,31 +93,41 @@ spec:
             periodSeconds: 10
 
           readinessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 5984
-              scheme: HTTP
             initialDelaySeconds: 20
             periodSeconds: 10
-            timeoutSeconds: 5
 
           livenessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 5984
-              scheme: HTTP
             initialDelaySeconds: 60
             periodSeconds: 20
-            timeoutSeconds: 5
 
           volumeMounts:
             - name: couchdb-storage
               mountPath: /opt/couchdb/data
 
+            - name: openbao-approle-revolutio-app
+              mountPath: /openbao/approle-secrets/revolutio-app
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /shared-certs
+              readOnly: true
+
       volumes:
         - name: couchdb-storage
           persistentVolumeClaim:
             claimName: couchdb-pvc-1
+
+        - name: openbao-approle-revolutio-app
+          persistentVolumeClaim:
+            claimName: openbao-approle-revolutio-app-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
 
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
