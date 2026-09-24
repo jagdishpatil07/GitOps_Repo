@@ -1,8 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: worker-app-migration
-  namespace: {{ .Values.namespace }}
+  namespace: myapp
   labels:
     service: worker-app-migration
 
@@ -13,6 +14,15 @@ spec:
     matchLabels:
       service: worker-app-migration
 
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
   template:
     metadata:
       labels:
@@ -21,57 +31,33 @@ spec:
     spec:
       restartPolicy: Always
 
+      imagePullSecrets:
+        - name: acr-secret
+
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
         fsGroup: 70070
 
-      imagePullSecrets:
-        - name: {{ .Values.global.imagePullSecrets.name }}
-
-      volumes:
-        - name: static-storage
-          persistentVolumeClaim:
-            claimName: {{ .Values.workerAppMigration.pvc.static }}
-
-        - name: templates-storage
-          persistentVolumeClaim:
-            claimName: {{ .Values.workerAppMigration.pvc.templates }}
-
-        - name: platformconfig-storage
-          persistentVolumeClaim:
-            claimName: {{ .Values.workerAppMigration.pvc.platformConfigs }}
-
-        - name: computation-storage
-          persistentVolumeClaim:
-            claimName: {{ .Values.workerAppMigration.pvc.computation }}
-
-        - name: media-storage
-          persistentVolumeClaim:
-            claimName: {{ .Values.workerAppMigration.pvc.media }}
-
       containers:
         - name: rqworker
-          image: "{{ .Values.workerAppMigration.image }}"
+
+          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
           imagePullPolicy: Always
 
           securityContext:
             runAsUser: 70070
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
 
-          resources:
-            limits:
-              cpu: {{ .Values.workerAppMigration.resources.limits.cpu }}
-              memory: {{ .Values.workerAppMigration.resources.limits.memory }}
-            requests:
-              cpu: {{ .Values.workerAppMigration.resources.requests.cpu }}
-              memory: {{ .Values.workerAppMigration.resources.requests.memory }}
+          args:
+            - /rqworker/start-app-migration
 
-          #################################################
-          # ✅ ENVIRONMENT VARIABLES
-          #################################################
           env:
             - name: DATABASE_URL
-              value: "{{ .Values.workerAppMigration.databaseUrl }}"
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
 
             - name: REDIS_URL
               value: "$(REDIS_URL)"
@@ -79,19 +65,52 @@ spec:
             - name: TZ
               value: "UTC"
 
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/shared-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "revolutio-app"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao/approle-secrets/revolutio-app/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: >-
+                DJANGO_SECRET_KEY=django/secret_key,
+                DJANGO_FERNET_SECRET=django/fernet_secret,
+                DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,
+                DJANGO_SUPERUSER_PASSWORD=django/superuser_password,
+                POSTGRES_PASSWORD=postgres-core/platform_app,
+                REDIS_PASSWORD=cache/redis,
+                REDIS_PASSWORD_SCHEDULER=cache/redis_scheduler,
+                KEYDB_PASSWORD=cache/keydb,
+                COUCHDB_PASSWORD=couchdb/admin
+
+            - name: OPENBAO_URL_TEMPLATES
+              value: >-
+                REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
+                REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD_SCHEDULER}@redis-scheduler:6379/0,
+                REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
+
           envFrom:
             - configMapRef:
-                name: {{ .Values.workerAppMigration.configMaps.web }}
-            - configMapRef:
-                name: {{ .Values.workerAppMigration.configMaps.postgres }}
-            - secretRef:
-                name: {{ .Values.workerAppMigration.secrets.web }}
-            - secretRef:
-                name: {{ .Values.workerAppMigration.secrets.postgres }}
+                name: envs-production-web
 
-          #################################################
-          # ✅ VOLUME MOUNTS
-          #################################################
+            - configMapRef:
+                name: envs-production-postgres-core
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+
           volumeMounts:
             - name: static-storage
               mountPath: /opt/revolutio/static
@@ -108,15 +127,42 @@ spec:
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
 
-          #################################################
-          # ✅ EXACT SAME AS OPENSHIFT
-          #################################################
-          args:
-            - /rqworker/start-app-migration
-          #################################################
+            - name: openbao-approle-revolutio-app
+              mountPath: /openbao/approle-secrets/revolutio-app
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /shared-certs
+              readOnly: true
+
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: static-pvc-1
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: user-defined-template-pvc-2
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: platform-configs-pvc-1
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: computation-storage-pvc-1
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-pvc-1
+
+        - name: openbao-approle-revolutio-app
+          persistentVolumeClaim:
+            claimName: openbao-approle-revolutio-app-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
 
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
-
-  strategy:
-    type: RollingUpdate
