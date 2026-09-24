@@ -3,6 +3,7 @@ kind: StatefulSet
 metadata:
   name: postgres-core
   namespace: myapp
+
 spec:
   serviceName: postgres-core
   replicas: 1
@@ -33,6 +34,9 @@ spec:
               containerPort: 5432
 
           env:
+            - name: POSTGRES_PASSWORD
+              value: "TempTest123!"
+
             - name: POSTGRES_DB
               value: postgres
 
@@ -75,7 +79,6 @@ spec:
               memory: "8Gi"
 
           volumeMounts:
-
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
 
@@ -108,34 +111,7 @@ spec:
               mountPath: /openbao-certs
               readOnly: true
 
-          readinessProbe:
-            exec:
-              command:
-                - pg_isready
-                - -h
-                - /var/run/postgresql
-                - -p
-                - "5432"
-            initialDelaySeconds: 30
-            timeoutSeconds: 5
-            periodSeconds: 10
-            failureThreshold: 6
-
-          livenessProbe:
-            exec:
-              command:
-                - pg_isready
-                - -h
-                - /var/run/postgresql
-                - -p
-                - "5432"
-            initialDelaySeconds: 60
-            timeoutSeconds: 5
-            periodSeconds: 20
-            failureThreshold: 6
-
       volumes:
-
         - name: postgres-data
           persistentVolumeClaim:
             claimName: postgresql-data-core-pvc
