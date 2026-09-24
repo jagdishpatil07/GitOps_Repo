@@ -2,12 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: worker-scheduler-system
-  namespace: {{ .Values.namespace }}
+  namespace: myapp
   labels:
     app: worker-scheduler-system
 
 spec:
-  replicas: {{ .Values.workerSchedulerSystem.replicaCount }}
+  replicas: 1
 
   selector:
     matchLabels:
@@ -19,9 +19,6 @@ spec:
       maxUnavailable: 25%
       maxSurge: 25%
 
-  revisionHistoryLimit: 10
-  progressDeadlineSeconds: 600
-
   template:
     metadata:
       labels:
@@ -29,56 +26,82 @@ spec:
 
     spec:
       imagePullSecrets:
-        - name: {{ .Values.global.imagePullSecrets.name }}
-
-      # OpenShift safe
-      securityContext: {}
+        - name: acr-secret
 
       containers:
         - name: worker-scheduler-system
-          image: "{{ .Values.workerSchedulerSystem.image }}"
+          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
           imagePullPolicy: Always
 
           args:
             - /rqworker/start-scheduler-system
 
-          resources:
-            requests:
-              cpu: {{ .Values.workerSchedulerSystem.resources.requests.cpu }}
-              memory: {{ .Values.workerSchedulerSystem.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.workerSchedulerSystem.resources.limits.cpu }}
-              memory: {{ .Values.workerSchedulerSystem.resources.limits.memory }}
-
           env:
             - name: DATABASE_URL
-              value: {{ .Values.workerSchedulerSystem.databaseUrl | quote }}
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
+
             - name: REDIS_URL
-              value: {{ .Values.workerSchedulerSystem.redisUrl | quote }}
+              value: "$(REDIS_URL)"
+
             - name: TZ
-              value: UTC
+              value: "UTC"
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/shared-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "revolutio-app"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao/approle-secrets/revolutio-app/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: "DJANGO_SECRET_KEY=django/secret_key,POSTGRES_PASSWORD=postgres-core/platform_app"
 
           envFrom:
             - configMapRef:
-                name: {{ .Values.workerSchedulerSystem.configMaps.web }}
+                name: envs-production-web
+
             - configMapRef:
-                name: {{ .Values.workerSchedulerSystem.configMaps.postgres }}
+                name: envs-production-postgres-core
+
             - secretRef:
-                name: {{ .Values.workerSchedulerSystem.secrets.web }}
-            - secretRef:
-                name: {{ .Values.workerSchedulerSystem.secrets.postgres }}
+                name: secrets-production-web
 
           volumeMounts:
             - name: static-storage
               mountPath: /opt/revolutio/static
+
             - name: templates-storage
               mountPath: /opt/revolutio/Core/templates/user_defined_template
+
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
+
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
+
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
+
+            - name: openbao-approle-revolutio-app
+              mountPath: /openbao/approle-secrets/revolutio-app
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /shared-certs
+              readOnly: true
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
 
           securityContext:
             allowPrivilegeEscalation: false
@@ -90,24 +113,30 @@ spec:
       volumes:
         - name: static-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerSchedulerSystem.pvc.static }}
+            claimName: static-pvc-1
 
         - name: templates-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerSchedulerSystem.pvc.templates }}
+            claimName: user-defined-template-pvc-2
 
         - name: platformconfig-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerSchedulerSystem.pvc.platformConfigs }}
+            claimName: platform-configs-pvc-1
 
         - name: computation-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerSchedulerSystem.pvc.computation }}
+            claimName: computation-storage-pvc-1
 
         - name: media-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.workerSchedulerSystem.pvc.media }}
+            claimName: media-pvc-1
+
+        - name: openbao-approle-revolutio-app
+          persistentVolumeClaim:
+            claimName: openbao-approle-revolutio-app-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
 
       restartPolicy: Always
-      terminationGracePeriodSeconds: 30
-      dnsPolicy: ClusterFirst
