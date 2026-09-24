@@ -3,6 +3,7 @@ kind: StatefulSet
 metadata:
   name: postgres-core
   namespace: myapp
+
 spec:
   serviceName: postgres-core
   replicas: 1
@@ -29,13 +30,12 @@ spec:
           image: revolutio.azurecr.io/revolutio_kubernetes/postgres:18-bookworm
           imagePullPolicy: Always
 
-          command:
-            - docker-entrypoint.sh
+          args:
             - postgres
-            - "-c"
-            - "config_file=/etc/postgresql/postgresql.conf"
-            - "-c"
-            - "hba_file=/etc/postgresql/pg_hba.conf"
+            - -c
+            - config_file=/etc/postgresql/postgresql.conf
+            - -c
+            - hba_file=/etc/postgresql/pg_hba.conf
 
           ports:
             - containerPort: 5432
@@ -70,27 +70,35 @@ spec:
               value: "/usr/local/bin/ensure-extensions-entrypoint.sh"
 
             - name: OPENBAO_SECRETS
-              value: >-
-                POSTGRES_PASSWORD=postgres-core/admin,
-                PLATFORM_APP_PASSWORD=postgres-core/platform_app,
-                APP_DB_APP_PASSWORD=postgres-core/app_db_app,
-                WORKSPACE_APP_PASSWORD=postgres-core/workspace_app,
-                HEALTH_CHECK_PASSWORD=postgres-core/health_check,
-                PGBR_PASSWORD=postgres-core/pgbackrest,
-                PGBACKREST_REPO1_CIPHER_PASS=postgres-core/pgbackrest_cipher
+              value: "POSTGRES_PASSWORD=postgres-core/admin,PLATFORM_APP_PASSWORD=postgres-core/platform_app,APP_DB_APP_PASSWORD=postgres-core/app_db_app,WORKSPACE_APP_PASSWORD=postgres-core/workspace_app,HEALTH_CHECK_PASSWORD=postgres-core/health_check,PGBR_PASSWORD=postgres-core/pgbackrest,PGBACKREST_REPO1_CIPHER_PASS=postgres-core/pgbackrest_cipher"
 
           resources:
             requests:
-              cpu: "500m"
-              memory: "2Gi"
+              cpu: 500m
+              memory: 2Gi
             limits:
               cpu: "4"
-              memory: "8Gi"
+              memory: 8Gi
 
           volumeMounts:
 
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+
+            - name: postgres-data
+              mountPath: /etc/postgresql/postgresql.conf
+              subPath: postgresql.conf
+              readOnly: true
+
+            - name: postgres-data
+              mountPath: /etc/postgresql/pg_hba.conf
+              subPath: pg_hba.conf
+              readOnly: true
+
+            - name: postgres-data
+              mountPath: /etc/pgbackrest/pgbackrest.conf
+              subPath: pgbackrest.conf
+              readOnly: true
 
             - name: postgres-backups
               mountPath: /backups
@@ -104,21 +112,6 @@ spec:
 
             - name: shared-certs
               mountPath: /openbao-certs
-              readOnly: true
-
-            - name: postgres-config
-              mountPath: /etc/postgresql/postgresql.conf
-              subPath: postgresql.conf
-              readOnly: true
-
-            - name: postgres-config
-              mountPath: /etc/postgresql/pg_hba.conf
-              subPath: pg_hba.conf
-              readOnly: true
-
-            - name: postgres-config
-              mountPath: /etc/pgbackrest/pgbackrest.conf
-              subPath: pgbackrest.conf
               readOnly: true
 
           readinessProbe:
@@ -164,8 +157,3 @@ spec:
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
-
-        - name: postgres-config
-          configMap:
-            name: postgres-core-config
-            defaultMode: 0644
