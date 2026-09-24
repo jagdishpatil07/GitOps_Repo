@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envs-production-postgres-core
+  namespace: myapp
+data:
+  POSTGRES_HOST: "pgbouncer1-new"
+  POSTGRES_DB: "Platform_DB"
+  POSTGRES_USER: "platform_app"
+  POSTGRES_PORT: "5432"
+  DATABASE_TYPE: "PostgreSQL"
