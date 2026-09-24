@@ -3,7 +3,6 @@ kind: StatefulSet
 metadata:
   name: postgres-core
   namespace: myapp
-
 spec:
   serviceName: postgres-core
   replicas: 1
@@ -26,20 +25,12 @@ spec:
 
       containers:
         - name: postgres-core
-
           image: revolutio.azurecr.io/revolutio_kubernetes/postgres:18-bookworm
           imagePullPolicy: Always
 
-          args:
-            - postgres
-            - -c
-            - config_file=/etc/postgresql/postgresql.conf
-            - -c
-            - hba_file=/etc/postgresql/pg_hba.conf
-
           ports:
-            - containerPort: 5432
-              name: postgres
+            - name: postgres
+              containerPort: 5432
 
           env:
             - name: POSTGRES_DB
@@ -66,6 +57,9 @@ spec:
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao-approle/secret_id"
 
+            - name: OPENBAO_ENV_FILE
+              value: "/var/run/openbao-env.sh"
+
             - name: OPENBAO_WRAPPED_ENTRYPOINT
               value: "/usr/local/bin/ensure-extensions-entrypoint.sh"
 
@@ -74,11 +68,11 @@ spec:
 
           resources:
             requests:
-              cpu: 500m
-              memory: 2Gi
+              cpu: "500m"
+              memory: "2Gi"
             limits:
               cpu: "4"
-              memory: 8Gi
+              memory: "8Gi"
 
           volumeMounts:
 
@@ -123,7 +117,9 @@ spec:
                 - -p
                 - "5432"
             initialDelaySeconds: 30
+            timeoutSeconds: 5
             periodSeconds: 10
+            failureThreshold: 6
 
           livenessProbe:
             exec:
@@ -134,7 +130,9 @@ spec:
                 - -p
                 - "5432"
             initialDelaySeconds: 60
+            timeoutSeconds: 5
             periodSeconds: 20
+            failureThreshold: 6
 
       volumes:
 
