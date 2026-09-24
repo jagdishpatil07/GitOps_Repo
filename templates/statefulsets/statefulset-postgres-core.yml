@@ -50,7 +50,7 @@ spec:
               value: "postgres"
 
             - name: PGDATA
-              value: "/var/lib/postgresql/data"
+              value: /var/lib/postgresql/data/pgdata
 
             - name: PG_DATABASES
               value: "platform appdb workspace"
