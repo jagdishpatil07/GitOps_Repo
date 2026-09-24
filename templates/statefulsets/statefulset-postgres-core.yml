@@ -114,10 +114,13 @@ spec:
                 - pg_isready
                 - -U
                 - health_check
+                - -d
+                - postgres
                 - -h
                 - /var/run/postgresql
                 - -p
                 - "5432"
+                - -q
             initialDelaySeconds: 30
             periodSeconds: 10
 
@@ -127,10 +130,13 @@ spec:
                 - pg_isready
                 - -U
                 - health_check
+                - -d
+                - postgres
                 - -h
                 - /var/run/postgresql
                 - -p
                 - "5432"
+                - -q
             initialDelaySeconds: 60
             periodSeconds: 20
 
