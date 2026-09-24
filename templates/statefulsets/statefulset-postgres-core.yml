@@ -42,7 +42,6 @@ spec:
               containerPort: 5432
 
           env:
-
             - name: POSTGRES_PASSWORD
               value: "TempTest123!"
 
@@ -65,10 +64,10 @@ spec:
               value: "TempCipher123!"
 
             - name: POSTGRES_DB
-              value: postgres
+              value: "postgres"
 
             - name: PGDATA
-              value: /var/lib/postgresql/data/pgdata
+              value: "/var/lib/postgresql/data/pgdata"
 
             - name: PG_DATABASES
               value: "platform appdb workspace"
@@ -106,7 +105,6 @@ spec:
               memory: "8Gi"
 
           volumeMounts:
-
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
 
@@ -162,7 +160,6 @@ spec:
             periodSeconds: 20
 
       volumes:
-
         - name: postgres-data
           persistentVolumeClaim:
             claimName: postgresql-data-core-pvc
