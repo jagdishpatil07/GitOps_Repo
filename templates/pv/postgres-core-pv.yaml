@@ -9,8 +9,9 @@ spec:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
+  volumeMode: Filesystem
   nfs:
-    server: <NFS_SERVER_IP>
+    server: 127.0.0.1
     path: /data/nfs/postgresql-data-core
 
 ---
@@ -25,8 +26,9 @@ spec:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
+  volumeMode: Filesystem
   nfs:
-    server: <NFS_SERVER_IP>
+    server: 127.0.0.1
     path: /data/nfs/postgresql-backup-core
 
 ---
@@ -41,6 +43,7 @@ spec:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
+  volumeMode: Filesystem
   nfs:
-    server: <NFS_SERVER_IP>
+    server: 127.0.0.1
     path: /data/nfs/postgres-core-socket
