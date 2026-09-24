@@ -55,23 +55,18 @@ spec:
         - name: OPENBAO_SECRET_ID_FILE
           value: "/openbao/approle-secrets/revolutio-app/secret_id"
 
-        #- name: OPENBAO_SECRETS
-        #  value: "DJANGO_SECRET_KEY=django/secret_key,POSTGRES_PASSWORD=postgres-core/platform_app"
         - name: OPENBAO_SECRETS
-          value: "DJANGO_SECRET_KEY=django/secret_key"
+          value: "DJANGO_SECRET_KEY=django/secret_key,POSTGRES_PASSWORD=postgres-core/platform_app"
 
         envFrom:
         - configMapRef:
             name: envs-production-web
 
         - configMapRef:
-            name: envs-production-postgres-new
+            name: envs-production-postgres-core
 
         - secretRef:
             name: secrets-production-web
-
-        - secretRef:
-            name: secrets-production-postgres-new
 
         volumeMounts:
         - name: static-storage
