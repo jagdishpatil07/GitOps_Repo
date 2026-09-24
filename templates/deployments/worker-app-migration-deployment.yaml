@@ -5,14 +5,14 @@ metadata:
   name: worker-app-migration
   namespace: myapp
   labels:
-    service: worker-app-migration
+    app: worker-app-migration
 
 spec:
   replicas: 1
 
   selector:
     matchLabels:
-      service: worker-app-migration
+      app: worker-app-migration
 
   strategy:
     type: RollingUpdate
@@ -26,7 +26,7 @@ spec:
   template:
     metadata:
       labels:
-        service: worker-app-migration
+        app: worker-app-migration
 
     spec:
       restartPolicy: Always
@@ -40,30 +40,45 @@ spec:
         fsGroup: 70070
 
       containers:
-        - name: rqworker
+        - name: worker-app-migration
 
           image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
           imagePullPolicy: Always
 
+          args:
+            - /rqworker/start-app-migration
+
           securityContext:
-            runAsUser: 70070
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
 
-          args:
-            - /rqworker/start-app-migration
-
           env:
             - name: DATABASE_URL
               value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
 
-            - name: REDIS_URL
-              value: "$(REDIS_URL)"
-
             - name: TZ
               value: "UTC"
+
+            - name: MALLOC_ARENA_MAX
+              value: "2"
+
+            - name: MKL_NUM_THREADS
+              value: "1"
+
+            - name: NUMEXPR_NUM_THREADS
+              value: "1"
+
+            - name: OMP_NUM_THREADS
+              value: "1"
+
+            - name: OPENBLAS_NUM_THREADS
+              value: "1"
+
+            - name: XDG_CACHE_HOME
+              value: "/opt/temp"
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -85,14 +100,13 @@ spec:
                 DJANGO_SUPERUSER_PASSWORD=django/superuser_password,
                 POSTGRES_PASSWORD=postgres-core/platform_app,
                 REDIS_PASSWORD=cache/redis,
-                REDIS_PASSWORD_SCHEDULER=cache/redis_scheduler,
                 KEYDB_PASSWORD=cache/keydb,
                 COUCHDB_PASSWORD=couchdb/admin
 
             - name: OPENBAO_URL_TEMPLATES
               value: >-
                 REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
-                REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD_SCHEDULER}@redis-scheduler:6379/0,
+                REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,
                 REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
 
           envFrom:
@@ -106,7 +120,6 @@ spec:
             requests:
               cpu: "500m"
               memory: "1Gi"
-
             limits:
               cpu: "1"
               memory: "2Gi"
@@ -122,47 +135,4 @@ spec:
               mountPath: /opt/revolutio/Platform_Configs
 
             - name: computation-storage
-              mountPath: /opt/revolutio/Computation_Temp_Storage
-
-            - name: media-storage
-              mountPath: /opt/revolutio/Core/media
-
-            - name: openbao-approle-revolutio-app
-              mountPath: /openbao/approle-secrets/revolutio-app
-              readOnly: true
-
-            - name: shared-certs
-              mountPath: /shared-certs
-              readOnly: true
-
-      volumes:
-        - name: static-storage
-          persistentVolumeClaim:
-            claimName: static-pvc-1
-
-        - name: templates-storage
-          persistentVolumeClaim:
-            claimName: user-defined-template-pvc-2
-
-        - name: platformconfig-storage
-          persistentVolumeClaim:
-            claimName: platform-configs-pvc-1
-
-        - name: computation-storage
-          persistentVolumeClaim:
-            claimName: computation-storage-pvc-1
-
-        - name: media-storage
-          persistentVolumeClaim:
-            claimName: media-pvc-1
-
-        - name: openbao-approle-revolutio-app
-          persistentVolumeClaim:
-            claimName: openbao-approle-revolutio-app-pvc-1
-
-        - name: shared-certs
-          persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
-
-      terminationGracePeriodSeconds: 30
-      dnsPolicy: ClusterFirst
+              
