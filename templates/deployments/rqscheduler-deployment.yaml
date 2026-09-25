@@ -31,13 +31,6 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
-      # Docker Compose:
-      # init: true
-      #
-      # Keep this enabled so Kubernetes provides the equivalent
-      # init-process behavior.
-      shareProcessNamespace: false
-
       securityContext: {}
 
       terminationGracePeriodSeconds: 30
@@ -47,7 +40,7 @@ spec:
       volumes:
 
         # --------------------------------
-        # Existing application volumes
+        # Existing application storage
         # --------------------------------
         - name: static-storage
           persistentVolumeClaim:
@@ -63,21 +56,22 @@ spec:
 
         # --------------------------------
         # OpenBao AppRole
+        # Confirmed PVC name
         # --------------------------------
         - name: openbao-approle
           persistentVolumeClaim:
-            claimName: {{ .Values.rqscheduler.pvc.openbaoApprole }}
+            claimName: openbao-approle-rqscheduler-pvc-1
 
         # --------------------------------
-        # OpenBao TLS certificate
+        # OpenBao TLS
+        # Confirmed shared certificate PVC
         # --------------------------------
         - name: shared-certs
           persistentVolumeClaim:
-            claimName: {{ .Values.rqscheduler.pvc.sharedCerts }}
+            claimName: shared-certs-pvc-1
 
         # --------------------------------
-        # Docker tmpfs:
-        # /opt/temp
+        # Docker tmpfs /opt/temp
         # --------------------------------
         - name: temp-storage
           emptyDir:
@@ -89,25 +83,13 @@ spec:
           image: "{{ .Values.rqscheduler.image }}"
           imagePullPolicy: Always
 
-          # Do NOT set command.
-          #
-          # The image ENTRYPOINT must remain active so that
-          # OpenBao secret injection happens before /app/start.
-          #
           # Docker Compose:
-          #   command: /app/start
+          # command: /app/start
           #
+          # Keep the image ENTRYPOINT intact.
           args:
             - /app/start
 
-          securityContext:
-            runAsUser: 70070
-            runAsNonRoot: true
-
-          # Docker Compose:
-          #   read_only: true
-          #
-          # Kubernetes equivalent.
           securityContext:
             runAsUser: 70070
             runAsNonRoot: true
@@ -193,11 +175,8 @@ spec:
             - name: temp-storage
               mountPath: /opt/temp
 
-          # --------------------------------
           # Docker healthcheck:
-          #
           # pidof -x rqscheduler
-          # --------------------------------
           startupProbe:
             exec:
               command:
