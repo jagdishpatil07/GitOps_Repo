@@ -1,6 +1,5 @@
 apiVersion: apps/v1
 kind: Deployment
-
 metadata:
   name: dashboard-api
   namespace: myapp
@@ -10,6 +9,8 @@ metadata:
 spec:
   replicas: 1
 
+  revisionHistoryLimit: 5
+
   selector:
     matchLabels:
       app: dashboard-api
@@ -17,8 +18,8 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
+      maxUnavailable: 0
+      maxSurge: 1
 
   template:
     metadata:
@@ -29,13 +30,25 @@ spec:
       imagePullSecrets:
         - name: acr-secret
 
+      terminationGracePeriodSeconds: 30
+
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
       containers:
         - name: dashboard-api
+
+          # IMPORTANT:
+          # Do NOT specify command/args here.
+          #
+          # Docker image provides:
+          # ENTRYPOINT=/usr/local/bin/fetch-entrypoint.sh
+          # CMD=/start.sh
+          #
+          # The OpenBao wrapper must execute first.
           image: revolutio.azurecr.io/revolutio_kubernetes/dashboard-api:latest
           imagePullPolicy: Always
-
-          command:
-            - /start.sh
 
           ports:
             - name: http
@@ -46,6 +59,7 @@ spec:
             - name: TZ
               value: "UTC"
 
+            # OpenBao
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -58,38 +72,21 @@ spec:
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao-approle/secret_id"
 
+            # IMPORTANT:
+            # fetch-entrypoint.sh uses this to retrieve secrets.
             - name: OPENBAO_SECRETS
               value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin"
 
             - name: OPENBAO_URL_TEMPLATES
               value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
 
+            # Application
             - name: PLATFORM_DATA_PATH
               value: "/app/Platform_Data"
 
           envFrom:
             - configMapRef:
                 name: envs-production-web
-
-          readinessProbe:
-            tcpSocket:
-              port: 5002
-            initialDelaySeconds: 30
-            periodSeconds: 10
-
-          livenessProbe:
-            tcpSocket:
-              port: 5002
-            initialDelaySeconds: 60
-            periodSeconds: 20
-
-          resources:
-            requests:
-              cpu: "1"
-              memory: "2Gi"
-            limits:
-              cpu: "2"
-              memory: "4Gi"
 
           volumeMounts:
             - name: media
@@ -105,15 +102,54 @@ spec:
               mountPath: /app/Platform_Data
               readOnly: true
 
-            # Same application-side path as Docker Compose
+            # OpenBao AppRole secret_id
             - name: openbao-approle-dashboard-api
               mountPath: /openbao-approle
               readOnly: true
 
-            # Application only needs to read the certificate
+            # OpenBao CA certificate
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
+
+          # Dashboard API must be able to establish its database
+          # connection before becoming ready.
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+            successThreshold: 1
+
+          # Restart if API stops listening.
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+
+          # Give Kubernetes enough time for Python/API startup.
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+            successThreshold: 1
+
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+
+            limits:
+              cpu: "2"
+              memory: "4Gi"
 
       volumes:
         - name: media
@@ -141,6 +177,4 @@ spec:
             claimName: shared-certs-pvc-1
 
       restartPolicy: Always
-      terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
-
