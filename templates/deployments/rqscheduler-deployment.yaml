@@ -13,6 +13,15 @@ spec:
     matchLabels:
       service: rqscheduler
 
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
   template:
     metadata:
       labels:
@@ -22,10 +31,24 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
-      # ✅ OpenShift safe
+      # Docker Compose:
+      # init: true
+      #
+      # Keep this enabled so Kubernetes provides the equivalent
+      # init-process behavior.
+      shareProcessNamespace: false
+
       securityContext: {}
 
+      terminationGracePeriodSeconds: 30
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+
       volumes:
+
+        # --------------------------------
+        # Existing application volumes
+        # --------------------------------
         - name: static-storage
           persistentVolumeClaim:
             claimName: {{ .Values.rqscheduler.pvc.static }}
@@ -38,21 +61,94 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.rqscheduler.pvc.platformConfigs }}
 
+        # --------------------------------
+        # OpenBao AppRole
+        # --------------------------------
+        - name: openbao-approle
+          persistentVolumeClaim:
+            claimName: {{ .Values.rqscheduler.pvc.openbaoApprole }}
+
+        # --------------------------------
+        # OpenBao TLS certificate
+        # --------------------------------
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: {{ .Values.rqscheduler.pvc.sharedCerts }}
+
+        # --------------------------------
+        # Docker tmpfs:
+        # /opt/temp
+        # --------------------------------
+        - name: temp-storage
+          emptyDir:
+            medium: Memory
+
       containers:
         - name: rqscheduler
+
           image: "{{ .Values.rqscheduler.image }}"
           imagePullPolicy: Always
+
+          # Do NOT set command.
+          #
+          # The image ENTRYPOINT must remain active so that
+          # OpenBao secret injection happens before /app/start.
+          #
+          # Docker Compose:
+          #   command: /app/start
+          #
+          args:
+            - /app/start
 
           securityContext:
             runAsUser: 70070
             runAsNonRoot: true
-            fsGroup: 70070
 
-          resources: {}
+          # Docker Compose:
+          #   read_only: true
+          #
+          # Kubernetes equivalent.
+          securityContext:
+            runAsUser: 70070
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
 
           env:
+
+            # --------------------------------
+            # General
+            # --------------------------------
             - name: TZ
-              value: UTC
+              value: "UTC"
+
+            # --------------------------------
+            # OpenBao
+            # --------------------------------
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "rqscheduler"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: "REDIS_PASSWORD=cache/redis"
+
+            - name: OPENBAO_URL_TEMPLATES
+              value: "REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1"
 
           envFrom:
             - configMapRef:
@@ -64,6 +160,10 @@ spec:
               protocol: TCP
 
           volumeMounts:
+
+            # --------------------------------
+            # Application storage
+            # --------------------------------
             - name: static-storage
               mountPath: /opt/revolutio/static
 
@@ -73,21 +173,60 @@ spec:
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
 
-          args:
-            - /app/start
+            # --------------------------------
+            # OpenBao AppRole
+            # --------------------------------
+            - name: openbao-approle
+              mountPath: /openbao-approle
+              readOnly: true
+
+            # --------------------------------
+            # OpenBao TLS
+            # --------------------------------
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+            # --------------------------------
+            # Docker tmpfs
+            # --------------------------------
+            - name: temp-storage
+              mountPath: /opt/temp
+
+          # --------------------------------
+          # Docker healthcheck:
+          #
+          # pidof -x rqscheduler
+          # --------------------------------
+          startupProbe:
+            exec:
+              command:
+                - pidof
+                - -x
+                - rqscheduler
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+
+          readinessProbe:
+            exec:
+              command:
+                - pidof
+                - -x
+                - rqscheduler
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            exec:
+              command:
+                - pidof
+                - -x
+                - rqscheduler
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
 
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
-
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 30
-      dnsPolicy: ClusterFirst
-
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
-
-  revisionHistoryLimit: 10
-  progressDeadlineSeconds: 600
