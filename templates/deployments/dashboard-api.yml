@@ -26,6 +26,10 @@ spec:
         app: dashboard-api
 
     spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 70070
+
       imagePullSecrets:
         - name: acr-secret
 
@@ -62,16 +66,27 @@ spec:
             - name: OPENBAO_URL_TEMPLATES
               value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
 
+            - name: PLATFORM_DATA_PATH
+              value: "/app/Platform_Data"
+
           envFrom:
             - configMapRef:
                 name: envs-production-web
+
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
 
           volumeMounts:
             - name: media
               mountPath: /media
 
-           # - name: assets
-           #   mountPath: /assets
+            - name: assets
+              mountPath: /assets
 
             - name: platform-configs
               mountPath: /app/Platform_Configs
@@ -88,22 +103,14 @@ spec:
               mountPath: /openbao-certs
               readOnly: true
 
-          resources:
-            requests:
-              cpu: "1"
-              memory: "2Gi"
-            limits:
-              cpu: "2"
-              memory: "4Gi"
-
       volumes:
         - name: media
           persistentVolumeClaim:
             claimName: media-pvc-1
 
-       # - name: assets
-       #   persistentVolumeClaim:
-       #     claimName: assets-pvc-1
+        - name: assets
+          persistentVolumeClaim:
+            claimName: assets-pvc-1
 
         - name: platform-configs
           persistentVolumeClaim:
