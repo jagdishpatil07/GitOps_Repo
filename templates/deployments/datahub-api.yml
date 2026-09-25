@@ -1,3 +1,4 @@
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,15 +39,10 @@ spec:
           image: revolutio.azurecr.io/revolutio_kubernetes/datahub-api:latest
           imagePullPolicy: Always
 
-          command:
-            - bash
-            - -c
-          args:
-            - >
-              exec uvicorn app.main:app
-              --host 0.0.0.0
-              --port 5003
-              --workers 1
+          # IMPORTANT:
+          # Do NOT set command/args here.
+          # This allows the image ENTRYPOINT to run the
+          # OpenBao secret injection script.
 
           ports:
             - name: http
@@ -56,6 +52,10 @@ spec:
           env:
             - name: TZ
               value: "UTC"
+
+            # =========================
+            # OpenBao
+            # =========================
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -85,35 +85,44 @@ spec:
 
           volumeMounts:
 
-            # OpenBao AppRole secret_id
+            # =========================
+            # OpenBao AppRole
+            # =========================
+
             - name: openbao-approle-datahub-api
               mountPath: /openbao-approle
               readOnly: true
 
-            # OpenBao TLS certificate
+            # =========================
+            # OpenBao TLS
+            # =========================
+
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
 
-            # Docker: olr-config -> /olr-config
+            # =========================
+            # Application volumes
+            # =========================
+
             - name: olr-config
               mountPath: /olr-config
 
-            # Docker: Platform_Configs -> /app/Platform_Configs
             - name: platform-configs
               mountPath: /app/Platform_Configs
 
-            # Docker: Platform_Data -> /app/Platform_Data
             - name: platform-data
               mountPath: /app/Platform_Data
 
-            # Docker: media -> /media
             - name: media
               mountPath: /media
 
-            # Docker: assets -> /assets
             - name: assets
               mountPath: /assets
+
+          # =========================
+          # Health checks
+          # =========================
 
           startupProbe:
             httpGet:
@@ -143,51 +152,60 @@ spec:
 
       volumes:
 
-        # Docker:
-        # openbao-approle-datahub-api
-        # -> /openbao-approle
+        # =========================
+        # OpenBao AppRole
+        # =========================
+
         - name: openbao-approle-datahub-api
           persistentVolumeClaim:
             claimName: openbao-approle-datahub-api-pvc-1
 
-        # Docker:
-        # shared-certs
-        # -> /openbao-certs
+        # =========================
+        # OpenBao TLS certificate
+        # =========================
+
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
-        # Docker:
-        # olr-config
-        # -> /olr-config
+        # =========================
+        # OLR config
+        # /data/nfs/olr-config
+        # =========================
+
         - name: olr-config
           persistentVolumeClaim:
             claimName: olr-config-pvc-1
 
-        # Docker:
-        # Platform_Configs
-        # -> /app/Platform_Configs
+        # =========================
+        # Platform Configs
+        # =========================
+
         - name: platform-configs
           persistentVolumeClaim:
             claimName: platform-configs-pvc-1
 
-        # Docker:
-        # Platform_Data
-        # -> /app/Platform_Data
+        # =========================
+        # Platform Data
+        # =========================
+
         - name: platform-data
           persistentVolumeClaim:
             claimName: platform-data-pvc-1
 
-        # Docker:
-        # media
-        # -> /media
+        # =========================
+        # Media
+        # =========================
+
         - name: media
           persistentVolumeClaim:
             claimName: media-pvc-1
 
-        # Docker:
-        # assets
-        # -> /assets
+        # =========================
+        # Assets
+        # =========================
+
         - name: assets
           persistentVolumeClaim:
             claimName: assets-pvc-1
+```
