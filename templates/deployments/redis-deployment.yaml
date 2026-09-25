@@ -36,9 +36,9 @@ spec:
         runAsNonRoot: true
         fsGroup: 70070
 
+      restartPolicy: Always
       terminationGracePeriodSeconds: 3
       dnsPolicy: ClusterFirst
-      restartPolicy: Always
 
       containers:
         - name: redis
@@ -46,15 +46,12 @@ spec:
           image: revolutio.azurecr.io/revolutio_kubernetes/redis:latest
           imagePullPolicy: Always
 
-          # IMPORTANT:
-          # Do not override the image ENTRYPOINT.
+          # Keep the image ENTRYPOINT.
           #
-          # Docker Compose uses:
-          #   command: docker-entrypoint.sh redis-server
+          # Docker Compose:
+          # command: docker-entrypoint.sh redis-server --maxmemory 512mb --maxmemory-policy noeviction
           #
-          # Kubernetes args are therefore used so the image
-          # ENTRYPOINT remains active.
-
+          # Kubernetes passes the same command as arguments.
           args:
             - docker-entrypoint.sh
             - redis-server
@@ -97,37 +94,35 @@ spec:
           resources:
             requests:
               cpu: "1"
-              memory: "2Gi"
+              memory: "512Mi"
             limits:
               cpu: "2"
               memory: "1Gi"
 
-          # -------------------------
-          # OpenBao AppRole
-          # -------------------------
           volumeMounts:
 
+            # -------------------------
+            # OpenBao AppRole
+            # -------------------------
             - name: openbao-approle-redis
               mountPath: /openbao-approle
               readOnly: true
 
+            # -------------------------
+            # OpenBao TLS certificate
+            # -------------------------
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
 
-            # Docker Compose mounts the redis volume at /data.
-            # Redis is configured with:
-            #   --save ""
-            #   --appendonly no
-            #
-            # Therefore there is currently no Redis persistence
-            # requirement from the command itself.
+            # -------------------------
+            # Redis data
+            # -------------------------
             - name: redis-data
               mountPath: /data
 
           # -------------------------
           # Docker healthcheck:
-          #
           # redis-cli ping
           # -------------------------
           startupProbe:
@@ -136,7 +131,7 @@ spec:
                 - redis-cli
                 - ping
             periodSeconds: 5
-            timeoutSeconds: 30
+            timeoutSeconds: 5
             failureThreshold: 50
 
           readinessProbe:
@@ -175,14 +170,6 @@ spec:
 
         # -------------------------
         # Redis /data
-        #
-        # Docker has a named volume here.
-        # Since Redis is explicitly configured with:
-        #   --save ""
-        #   --appendonly no
-        #
-        # emptyDir is sufficient to reproduce the current
-        # runtime behavior without inventing an NFS PVC.
         # -------------------------
         - name: redis-data
           emptyDir: {}
