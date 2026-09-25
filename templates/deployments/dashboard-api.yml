@@ -1,3 +1,4 @@
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 
@@ -56,7 +57,7 @@ spec:
               value: "dashboard-api"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/dashboard-api/secret_id"
+              value: "/openbao-approle/secret_id"
 
             - name: OPENBAO_SECRETS
               value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin"
@@ -105,10 +106,12 @@ spec:
               mountPath: /app/Platform_Data
               readOnly: true
 
+            # Same application-side path as Docker Compose
             - name: openbao-approle-dashboard-api
-              mountPath: /openbao/approle-secrets/dashboard-api
+              mountPath: /openbao-approle
               readOnly: true
 
+            # Application only needs to read the certificate
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
@@ -141,3 +144,4 @@ spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
+```
