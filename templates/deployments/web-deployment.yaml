@@ -1,3 +1,4 @@
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -40,9 +41,9 @@ spec:
 
       volumes:
 
-        # ============================================
+        # ============================================================
         # Application persistent storage
-        # ============================================
+        # ============================================================
 
         - name: static-storage
           persistentVolumeClaim:
@@ -68,29 +69,29 @@ spec:
           persistentVolumeClaim:
             claimName: computation-storage-pvc-1
 
-        # ============================================
+        # ============================================================
         # OpenBao AppRole
         # Docker:
         # /openbao-approle/secret_id
-        # ============================================
+        # ============================================================
 
         - name: openbao-approle
           persistentVolumeClaim:
             claimName: openbao-approle-revolutio-app-pvc-1
 
-        # ============================================
-        # OpenBao TLS certificate
+        # ============================================================
+        # OpenBao TLS
         # Docker:
         # /openbao-certs/tls.crt
-        # ============================================
+        # ============================================================
 
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
-        # ============================================
+        # ============================================================
         # Docker tmpfs equivalents
-        # ============================================
+        # ============================================================
 
         - name: opt-temp
           emptyDir:
@@ -119,14 +120,20 @@ spec:
           image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
           imagePullPolicy: Always
 
-          # IMPORTANT:
-          # Do NOT specify "command".
+          # ==========================================================
+          # IMPORTANT
           #
-          # Docker image ENTRYPOINT is:
+          # Do NOT define "command".
+          #
+          # Image ENTRYPOINT:
           # /usr/local/bin/fetch-entrypoint.sh
           #
-          # This entrypoint performs the OpenBao login and
-          # exports the required secrets before executing args.
+          # This performs OpenBao authentication and exports secrets
+          # before executing these arguments.
+          #
+          # Docker Compose command:
+          # bash -c 'gunicorn ...'
+          # ==========================================================
 
           args:
             - bash
@@ -140,15 +147,19 @@ spec:
               --graceful-timeout 10
 
           ports:
-            - name: uvicorn
+            - name: http
               containerPort: 5000
               protocol: TCP
 
+          # ==========================================================
+          # Environment
+          # ==========================================================
+
           env:
 
-            # ========================================
-            # Application configuration
-            # ========================================
+            # --------------------------------------------------------
+            # Application
+            # --------------------------------------------------------
 
             - name: TZ
               value: "UTC"
@@ -168,15 +179,15 @@ spec:
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
-            # ========================================
+            # --------------------------------------------------------
             # Redis
             #
-            # Explicitly define these so Kubernetes
-            # Service environment variables cannot
-            # replace REDIS_PORT with:
+            # Explicitly set these because Kubernetes automatically
+            # creates REDIS_* service environment variables.
             #
+            # Without this, REDIS_PORT could become:
             # tcp://<cluster-ip>:6379
-            # ========================================
+            # --------------------------------------------------------
 
             - name: REDIS_HOST
               value: "redis"
@@ -184,9 +195,9 @@ spec:
             - name: REDIS_PORT
               value: "6379"
 
-            # ========================================
+            # --------------------------------------------------------
             # OpenBao
-            # ========================================
+            # --------------------------------------------------------
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -201,37 +212,24 @@ spec:
               value: "/openbao-approle/secret_id"
 
             - name: OPENBAO_SECRETS
-              value: >-
-                SECRET_KEY=django/secret_key,
-                FERNET_SECRET=django/fernet_secret,
-                DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,
-                DJANGO_SUPERUSER_PASSWORD=django/superuser_password,
-                REDIS_PASSWORD=cache/redis,
-                KEYDB_PASSWORD=cache/keydb,
-                POSTGRES_PASSWORD=postgres-core/platform_app
+              value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,DJANGO_SUPERUSER_PASSWORD=django/superuser_password,REDIS_PASSWORD=cache/redis,KEYDB_PASSWORD=cache/keydb,POSTGRES_PASSWORD=postgres-core/platform_app"
 
-            # IMPORTANT:
-            # $$ becomes a literal $ for the OpenBao
-            # entrypoint, allowing it to expand the
-            # fetched secret values.
+            # --------------------------------------------------------
+            # OpenBao-generated URLs
             #
-            # These match the healthy Docker container.
+            # $$ preserves the $ for fetch-entrypoint.sh so the
+            # fetched secret values are expanded at runtime.
+            # --------------------------------------------------------
 
             - name: OPENBAO_URL_TEMPLATES
-              value: >-
-                REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
-                REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,
-                REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
+              value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379"
 
-          # ==========================================
-          # Existing application ConfigMaps
+          # ==========================================================
+          # Existing non-secret configuration
           #
-          # Non-secret configuration can continue
-          # coming from these ConfigMaps.
-          #
-          # OpenBao entrypoint overwrites the secret
-          # variables listed in OPENBAO_SECRETS.
-          # ==========================================
+          # Explicit env values above take precedence over envFrom
+          # values with the same variable name.
+          # ==========================================================
 
           envFrom:
             - configMapRef:
@@ -240,9 +238,11 @@ spec:
             - configMapRef:
                 name: envs-production-postgres-core
 
-          # ==========================================
+          # ==========================================================
           # Resources
-          # ==========================================
+          #
+          # Kept at your current Kubernetes allocation.
+          # ==========================================================
 
           resources:
             requests:
@@ -253,35 +253,68 @@ spec:
               cpu: "8"
               memory: "32Gi"
 
-          # ==========================================
-          # Health checks
-          # ==========================================
+          # ==========================================================
+          # Startup probe
+          #
+          # Docker Compose:
+          # start_period: 360s
+          #
+          # 12 failures x 30 seconds = 360 seconds.
+          #
+          # This prevents Kubernetes from killing the container while
+          # static publishing/bootstrap/Gunicorn startup is occurring.
+          # ==========================================================
+
+          startupProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - /opt/revolutio/healthcheck.sh 5000
+
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 12
+
+          # ==========================================================
+          # Readiness probe
+          #
+          # Same healthcheck used by Docker Compose.
+          # ==========================================================
 
           readinessProbe:
-            httpGet:
-              path: /
-              port: 5000
-              scheme: HTTP
-            initialDelaySeconds: 120
-            periodSeconds: 20
-            timeoutSeconds: 10
-            failureThreshold: 6
-            successThreshold: 1
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - /opt/revolutio/healthcheck.sh 5000
 
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 5000
-              scheme: HTTP
-            initialDelaySeconds: 120
             periodSeconds: 30
-            timeoutSeconds: 10
+            timeoutSeconds: 30
             failureThreshold: 5
             successThreshold: 1
 
-          # ==========================================
-          # Security
-          # ==========================================
+          # ==========================================================
+          # Liveness probe
+          #
+          # Same application healthcheck.
+          # ==========================================================
+
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - /opt/revolutio/healthcheck.sh 5000
+
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 5
+            successThreshold: 1
+
+          # ==========================================================
+          # Container security
+          # ==========================================================
 
           securityContext:
             runAsUser: 70070
@@ -292,9 +325,9 @@ spec:
               drop:
                 - ALL
 
-          # ==========================================
+          # ==========================================================
           # Persistent mounts
-          # ==========================================
+          # ==========================================================
 
           volumeMounts:
 
@@ -316,9 +349,9 @@ spec:
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
 
-            # ========================================
-            # OpenBao mounts
-            # ========================================
+          # ==========================================================
+          # OpenBao mounts
+          # ==========================================================
 
             - name: openbao-approle
               mountPath: /openbao-approle
@@ -328,9 +361,9 @@ spec:
               mountPath: /openbao-certs
               readOnly: true
 
-            # ========================================
-            # Docker tmpfs equivalents
-            # ========================================
+          # ==========================================================
+          # Docker tmpfs equivalents
+          # ==========================================================
 
             - name: opt-temp
               mountPath: /opt/temp
@@ -343,3 +376,4 @@ spec:
 
             - name: gunicorn-runtime
               mountPath: /home/revolutio/.gunicorn
+```
