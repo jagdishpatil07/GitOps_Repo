@@ -3,171 +3,251 @@ kind: Deployment
 metadata:
   name: openbao
   namespace: myapp
-
+  labels:
+    app: openbao
+    component: secrets-management
 spec:
   replicas: 1
+
+  revisionHistoryLimit: 5
 
   selector:
     matchLabels:
       app: openbao
 
+  strategy:
+    type: Recreate
+
   template:
     metadata:
       labels:
         app: openbao
+        component: secrets-management
 
     spec:
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60
+      dnsPolicy: ClusterFirst
+
       containers:
-      - name: openbao
-        image: revolutio.azurecr.io/revolutio_kubernetes/openbao:latest
-        imagePullPolicy: IfNotPresent
+        - name: openbao
 
-        env:
-        - name: TZ
-          value: UTC
+          image: revolutio.azurecr.io/revolutio_kubernetes/openbao:latest
+          imagePullPolicy: Always
 
-        ports:
-        - containerPort: 8200
+          env:
+            - name: TZ
+              value: "UTC"
 
-        volumeMounts:
-        - name: openbao-data
-          mountPath: /openbao/data
+          ports:
+            - name: api
+              containerPort: 8200
+              protocol: TCP
 
-        - name: openbao-init
-          mountPath: /openbao/init
+            - name: cluster
+              containerPort: 8201
+              protocol: TCP
 
-        - name: openbao-tls
-          mountPath: /openbao/tls
+          volumeMounts:
 
-        - name: shared-certs
-          mountPath: /shared-certs
+            # =========================
+            # OpenBao data
+            # =========================
+            - name: openbao-data
+              mountPath: /openbao/data
 
-        - name: approle-postgres-core
-          mountPath: /openbao/approle-secrets/postgres-core
+            # =========================
+            # OpenBao initialization
+            # =========================
+            - name: openbao-init
+              mountPath: /openbao/init
 
-        - name: approle-redis
-          mountPath: /openbao/approle-secrets/redis
+            # =========================
+            # OpenBao TLS
+            # =========================
+            - name: openbao-tls
+              mountPath: /openbao/tls
+              readOnly: true
 
-        - name: approle-keydb
-          mountPath: /openbao/approle-secrets/keydb
+            # =========================
+            # Shared certificates
+            # =========================
+            - name: shared-certs
+              mountPath: /shared-certs
+              readOnly: true
 
-        - name: approle-couchdb
-          mountPath: /openbao/approle-secrets/couchdb
+            # =========================
+            # AppRole secrets
+            # Keep these paths EXACTLY
+            # =========================
 
-        - name: approle-revolutio-app
-          mountPath: /openbao/approle-secrets/revolutio-app
+            - name: approle-postgres-core
+              mountPath: /openbao/approle-secrets/postgres-core
 
-        - name: approle-pgbouncer1-new
-          mountPath: /openbao/approle-secrets/pgbouncer1-new
+            - name: approle-redis
+              mountPath: /openbao/approle-secrets/redis
 
-        - name: approle-pgbouncer1-app
-          mountPath: /openbao/approle-secrets/pgbouncer1-app
+            - name: approle-keydb
+              mountPath: /openbao/approle-secrets/keydb
 
-        - name: approle-dashboard-api
-          mountPath: /openbao/approle-secrets/dashboard-api
+            - name: approle-couchdb
+              mountPath: /openbao/approle-secrets/couchdb
 
-        - name: approle-datahub-api
-          mountPath: /openbao/approle-secrets/datahub-api
+            - name: approle-revolutio-app
+              mountPath: /openbao/approle-secrets/revolutio-app
 
-        - name: approle-postgres-backup
-          mountPath: /openbao/approle-secrets/postgres-backup
+            - name: approle-pgbouncer1-new
+              mountPath: /openbao/approle-secrets/pgbouncer1-new
 
-        - name: approle-pgbackrest
-          mountPath: /openbao/approle-secrets/pgbackrest
+            - name: approle-pgbouncer1-app
+              mountPath: /openbao/approle-secrets/pgbouncer1-app
 
-        - name: approle-rqscheduler
-          mountPath: /openbao/approle-secrets/rqscheduler
+            - name: approle-dashboard-api
+              mountPath: /openbao/approle-secrets/dashboard-api
 
-        - name: approle-kong
-          mountPath: /openbao/approle-secrets/kong
+            - name: approle-datahub-api
+              mountPath: /openbao/approle-secrets/datahub-api
 
-        - name: approle-rabbitmq
-          mountPath: /openbao/approle-secrets/rabbitmq
+            - name: approle-postgres-backup
+              mountPath: /openbao/approle-secrets/postgres-backup
 
-        - name: approle-platform-migrator
-          mountPath: /openbao/approle-secrets/platform-migrator
+            - name: approle-pgbackrest
+              mountPath: /openbao/approle-secrets/pgbackrest
 
-        resources:
-          requests:
-            cpu: 250m
-            memory: 256Mi
-          limits:
-            cpu: "1"
-            memory: 512Mi
+            - name: approle-rqscheduler
+              mountPath: /openbao/approle-secrets/rqscheduler
+
+            - name: approle-kong
+              mountPath: /openbao/approle-secrets/kong
+
+            - name: approle-rabbitmq
+              mountPath: /openbao/approle-secrets/rabbitmq
+
+            - name: approle-platform-migrator
+              mountPath: /openbao/approle-secrets/platform-migrator
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+
+          readinessProbe:
+            tcpSocket:
+              port: 8200
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+            successThreshold: 1
+
+          livenessProbe:
+            tcpSocket:
+              port: 8200
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+            successThreshold: 1
+
+          startupProbe:
+            tcpSocket:
+              port: 8200
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 30
+            successThreshold: 1
+
+      # ============================================================
+      # VOLUMES
+      # ============================================================
 
       volumes:
-      - name: openbao-data
-        persistentVolumeClaim:
-          claimName: openbao-data-pvc-1
 
-      - name: openbao-init
-        persistentVolumeClaim:
-          claimName: openbao-init-pvc-1
+        # =========================
+        # OpenBao core storage
+        # =========================
 
-      - name: openbao-tls
-        persistentVolumeClaim:
-          claimName: openbao-tls-pvc-1
+        - name: openbao-data
+          persistentVolumeClaim:
+            claimName: openbao-data-pvc-1
 
-      - name: shared-certs
-        persistentVolumeClaim:
-          claimName: shared-certs-pvc-1
+        - name: openbao-init
+          persistentVolumeClaim:
+            claimName: openbao-init-pvc-1
 
-      - name: approle-postgres-core
-        persistentVolumeClaim:
-          claimName: openbao-approle-postgres-core-pvc-1
+        - name: openbao-tls
+          persistentVolumeClaim:
+            claimName: openbao-tls-pvc-1
 
-      - name: approle-redis
-        persistentVolumeClaim:
-          claimName: openbao-approle-redis-pvc-1
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
 
-      - name: approle-keydb
-        persistentVolumeClaim:
-          claimName: openbao-approle-keydb-pvc-1
+        # =========================
+        # AppRole PVCs
+        # =========================
 
-      - name: approle-couchdb
-        persistentVolumeClaim:
-          claimName: openbao-approle-couchdb-pvc-1
+        - name: approle-postgres-core
+          persistentVolumeClaim:
+            claimName: openbao-approle-postgres-core-pvc-1
 
-      - name: approle-revolutio-app
-        persistentVolumeClaim:
-          claimName: openbao-approle-revolutio-app-pvc-1
+        - name: approle-redis
+          persistentVolumeClaim:
+            claimName: openbao-approle-redis-pvc-1
 
-      - name: approle-pgbouncer1-new
-        persistentVolumeClaim:
-          claimName: openbao-approle-pgbouncer1-new-pvc-1
+        - name: approle-keydb
+          persistentVolumeClaim:
+            claimName: openbao-approle-keydb-pvc-1
 
-      - name: approle-pgbouncer1-app
-        persistentVolumeClaim:
-          claimName: openbao-approle-pgbouncer1-app-pvc-1
+        - name: approle-couchdb
+          persistentVolumeClaim:
+            claimName: openbao-approle-couchdb-pvc-1
 
-      - name: approle-dashboard-api
-        persistentVolumeClaim:
-          claimName: openbao-approle-dashboard-api-pvc-1
+        - name: approle-revolutio-app
+          persistentVolumeClaim:
+            claimName: openbao-approle-revolutio-app-pvc-1
 
-      - name: approle-datahub-api
-        persistentVolumeClaim:
-          claimName: openbao-approle-datahub-api-pvc-1
+        - name: approle-pgbouncer1-new
+          persistentVolumeClaim:
+            claimName: openbao-approle-pgbouncer1-new-pvc-1
 
-      - name: approle-postgres-backup
-        persistentVolumeClaim:
-          claimName: openbao-approle-postgres-backup-pvc-1
+        - name: approle-pgbouncer1-app
+          persistentVolumeClaim:
+            claimName: openbao-approle-pgbouncer1-app-pvc-1
 
-      - name: approle-pgbackrest
-        persistentVolumeClaim:
-          claimName: openbao-approle-pgbackrest-pvc-1
+        - name: approle-dashboard-api
+          persistentVolumeClaim:
+            claimName: openbao-approle-dashboard-api-pvc-1
 
-      - name: approle-rqscheduler
-        persistentVolumeClaim:
-          claimName: openbao-approle-rqscheduler-pvc-1
+        - name: approle-datahub-api
+          persistentVolumeClaim:
+            claimName: openbao-approle-datahub-api-pvc-1
 
-      - name: approle-kong
-        persistentVolumeClaim:
-          claimName: openbao-approle-kong-pvc-1
+        - name: approle-postgres-backup
+          persistentVolumeClaim:
+            claimName: openbao-approle-postgres-backup-pvc-1
 
-      - name: approle-rabbitmq
-        persistentVolumeClaim:
-          claimName: openbao-approle-rabbitmq-pvc-1
+        - name: approle-pgbackrest
+          persistentVolumeClaim:
+            claimName: openbao-approle-pgbackrest-pvc-1
 
-      - name: approle-platform-migrator
-        persistentVolumeClaim:
-          claimName: openbao-approle-platform-migrator-pvc-1
+        - name: approle-rqscheduler
+          persistentVolumeClaim:
+            claimName: openbao-approle-rqscheduler-pvc-1
+
+        - name: approle-kong
+          persistentVolumeClaim:
+            claimName: openbao-approle-kong-pvc-1
+
+        - name: approle-rabbitmq
+          persistentVolumeClaim:
+            claimName: openbao-approle-rabbitmq-pvc-1
+
+        - name: approle-platform-migrator
+          persistentVolumeClaim:
+            claimName: openbao-approle-platform-migrator-pvc-1
