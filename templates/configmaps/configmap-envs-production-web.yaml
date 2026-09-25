@@ -51,7 +51,7 @@ data:
   # ✅ FIXED (Optional)
   DJANGO_ALLOWED_HOSTS: '*'
   #POSTGRES_HOST: pgbouncer1-new
-  POSTGRES_HOST: pgbouncer-service
+  POSTGRES_HOST: pgbouncer1-new  
   POSTGRES_DB: Platform_DB
   POSTGRES_USER: platform_app
   POSTGRES_PORT: '5432'
