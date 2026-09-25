@@ -31,31 +31,110 @@ spec:
       imagePullSecrets:
         - name: acr-secret
 
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 30
-      dnsPolicy: ClusterFirst
+      terminationGracePeriodSeconds: 15
 
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
         fsGroup: 70070
 
+      volumes:
+
+        # ============================================
+        # Application persistent storage
+        # ============================================
+
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: static-pvc-1
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-pvc-1
+
+        - name: assets-storage
+          persistentVolumeClaim:
+            claimName: assets-pvc-1
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: platform-configs-pvc-1
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: user-defined-template-pvc-2
+
+        - name: computation-storage
+          persistentVolumeClaim:
+            claimName: computation-storage-pvc-1
+
+        # ============================================
+        # OpenBao AppRole
+        # Docker:
+        # /openbao-approle/secret_id
+        # ============================================
+
+        - name: openbao-approle
+          persistentVolumeClaim:
+            claimName: openbao-approle-revolutio-app-pvc-1
+
+        # ============================================
+        # OpenBao TLS certificate
+        # Docker:
+        # /openbao-certs/tls.crt
+        # ============================================
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
+
+        # ============================================
+        # Docker tmpfs equivalents
+        # ============================================
+
+        - name: opt-temp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+
+        - name: revolutio-logs
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+
+        - name: gunicorn-runtime
+          emptyDir:
+            medium: Memory
+            sizeLimit: 10Mi
+
       containers:
+
         - name: web
 
           image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
           imagePullPolicy: Always
 
-          # Keep the application startup command explicit.
-          command:
-            - bash
-            - -c
+          # IMPORTANT:
+          # Do NOT specify "command".
+          #
+          # Docker image ENTRYPOINT is:
+          # /usr/local/bin/fetch-entrypoint.sh
+          #
+          # This entrypoint performs the OpenBao login and
+          # exports the required secrets before executing args.
 
           args:
-            - >
+            - bash
+            - -c
+            - >-
               gunicorn config.asgi:application
               --bind 0.0.0.0:5000
-              --workers 2
+              --workers 4
               --worker-class uvicorn.workers.UvicornWorker
               --timeout 120
               --graceful-timeout 10
@@ -67,12 +146,9 @@ spec:
 
           env:
 
-            # --------------------------------------------------
-            # Application
-            # --------------------------------------------------
-
-            - name: DATABASE_URL
-              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
+            # ========================================
+            # Application configuration
+            # ========================================
 
             - name: TZ
               value: "UTC"
@@ -92,12 +168,15 @@ spec:
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
-            # --------------------------------------------------
+            # ========================================
             # Redis
             #
-            # Explicitly set these because Kubernetes can inject
-            # REDIS_PORT=tcp://<service-ip>:6379 automatically.
-            # --------------------------------------------------
+            # Explicitly define these so Kubernetes
+            # Service environment variables cannot
+            # replace REDIS_PORT with:
+            #
+            # tcp://<cluster-ip>:6379
+            # ========================================
 
             - name: REDIS_HOST
               value: "redis"
@@ -105,21 +184,21 @@ spec:
             - name: REDIS_PORT
               value: "6379"
 
-            # --------------------------------------------------
+            # ========================================
             # OpenBao
-            # --------------------------------------------------
+            # ========================================
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
             - name: OPENBAO_CACERT
-              value: "/shared-certs/tls.crt"
+              value: "/openbao-certs/tls.crt"
 
             - name: OPENBAO_ROLE_ID
               value: "revolutio-app"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/revolutio-app/secret_id"
+              value: "/openbao-approle/secret_id"
 
             - name: OPENBAO_SECRETS
               value: >-
@@ -131,20 +210,28 @@ spec:
                 KEYDB_PASSWORD=cache/keydb,
                 POSTGRES_PASSWORD=postgres-core/platform_app
 
-            # --------------------------------------------------
-            # OpenBao-generated connection URLs
-            # --------------------------------------------------
+            # IMPORTANT:
+            # $$ becomes a literal $ for the OpenBao
+            # entrypoint, allowing it to expand the
+            # fetched secret values.
+            #
+            # These match the healthy Docker container.
 
             - name: OPENBAO_URL_TEMPLATES
               value: >-
                 REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
                 REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,
-                REDIS_DJANGO_CACHE=redis://:$${REDIS_PASSWORD}@redis:6379,
                 REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
 
-          # ----------------------------------------------------
-          # Existing application configuration
-          # ----------------------------------------------------
+          # ==========================================
+          # Existing application ConfigMaps
+          #
+          # Non-secret configuration can continue
+          # coming from these ConfigMaps.
+          #
+          # OpenBao entrypoint overwrites the secret
+          # variables listed in OPENBAO_SECRETS.
+          # ==========================================
 
           envFrom:
             - configMapRef:
@@ -153,9 +240,9 @@ spec:
             - configMapRef:
                 name: envs-production-postgres-core
 
-          # ----------------------------------------------------
+          # ==========================================
           # Resources
-          # ----------------------------------------------------
+          # ==========================================
 
           resources:
             requests:
@@ -166,14 +253,14 @@ spec:
               cpu: "8"
               memory: "32Gi"
 
-          # ----------------------------------------------------
-          # Readiness
-          # ----------------------------------------------------
+          # ==========================================
+          # Health checks
+          # ==========================================
 
           readinessProbe:
             httpGet:
               path: /
-              port: uvicorn
+              port: 5000
               scheme: HTTP
             initialDelaySeconds: 120
             periodSeconds: 20
@@ -181,14 +268,10 @@ spec:
             failureThreshold: 6
             successThreshold: 1
 
-          # ----------------------------------------------------
-          # Liveness
-          # ----------------------------------------------------
-
           livenessProbe:
             httpGet:
               path: /
-              port: uvicorn
+              port: 5000
               scheme: HTTP
             initialDelaySeconds: 120
             periodSeconds: 30
@@ -196,9 +279,22 @@ spec:
             failureThreshold: 5
             successThreshold: 1
 
-          # ----------------------------------------------------
-          # Storage
-          # ----------------------------------------------------
+          # ==========================================
+          # Security
+          # ==========================================
+
+          securityContext:
+            runAsUser: 70070
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # ==========================================
+          # Persistent mounts
+          # ==========================================
 
           volumeMounts:
 
@@ -207,6 +303,9 @@ spec:
 
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
+
+            - name: assets-storage
+              mountPath: /opt/revolutio/assets
 
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
@@ -217,68 +316,30 @@ spec:
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
 
-            # ------------------------------------------------
-            # OpenBao AppRole secret
-            # ------------------------------------------------
+            # ========================================
+            # OpenBao mounts
+            # ========================================
 
             - name: openbao-approle
-              mountPath: /openbao/approle-secrets/revolutio-app
+              mountPath: /openbao-approle
               readOnly: true
-
-            # ------------------------------------------------
-            # OpenBao TLS certificate
-            # ------------------------------------------------
 
             - name: shared-certs
-              mountPath: /shared-certs
+              mountPath: /openbao-certs
               readOnly: true
 
-          securityContext:
-            runAsUser: 70070
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
+            # ========================================
+            # Docker tmpfs equivalents
+            # ========================================
 
-      # ======================================================
-      # Volumes
-      # ======================================================
+            - name: opt-temp
+              mountPath: /opt/temp
 
-      volumes:
+            - name: revolutio-logs
+              mountPath: /opt/revolutio/logs
 
-        - name: static-storage
-          persistentVolumeClaim:
-            claimName: static-pvc-1
+            - name: tmp
+              mountPath: /tmp
 
-        - name: media-storage
-          persistentVolumeClaim:
-            claimName: media-pvc-1
-
-        - name: platformconfig-storage
-          persistentVolumeClaim:
-            claimName: platform-configs-pvc-1
-
-        - name: templates-storage
-          persistentVolumeClaim:
-            claimName: user-defined-template-pvc-2
-
-        - name: computation-storage
-          persistentVolumeClaim:
-            claimName: computation-storage-pvc-1
-
-        # ----------------------------------------------------
-        # OpenBao AppRole
-        # ----------------------------------------------------
-
-        - name: openbao-approle
-          persistentVolumeClaim:
-            claimName: openbao-approle-revolutio-app-pvc-1
-
-        # ----------------------------------------------------
-        # Shared OpenBao TLS certificates
-        # ----------------------------------------------------
-
-        - name: shared-certs
-          persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
+            - name: gunicorn-runtime
+              mountPath: /home/revolutio/.gunicorn
