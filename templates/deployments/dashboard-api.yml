@@ -1,4 +1,3 @@
-```yaml
 apiVersion: apps/v1
 kind: Deployment
 
@@ -144,4 +143,4 @@ spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
-```
+
