@@ -70,8 +70,8 @@ spec:
             - name: media
               mountPath: /media
 
-            - name: assets
-              mountPath: /assets
+           # - name: assets
+           #   mountPath: /assets
 
             - name: platform-configs
               mountPath: /app/Platform_Configs
@@ -101,9 +101,9 @@ spec:
           persistentVolumeClaim:
             claimName: media-pvc-1
 
-        - name: assets
-          persistentVolumeClaim:
-            claimName: assets-pvc-1
+       # - name: assets
+       #   persistentVolumeClaim:
+       #     claimName: assets-pvc-1
 
         - name: platform-configs
           persistentVolumeClaim:
