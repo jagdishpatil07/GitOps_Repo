@@ -3,12 +3,23 @@ kind: Deployment
 metadata:
   name: datahub-api
   namespace: myapp
+  labels:
+    app: datahub-api
+
 spec:
   replicas: 1
+
+  revisionHistoryLimit: 5
 
   selector:
     matchLabels:
       app: datahub-api
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
 
   template:
     metadata:
@@ -16,59 +27,167 @@ spec:
         app: datahub-api
 
     spec:
+      imagePullSecrets:
+        - name: acr-secret
+
+      terminationGracePeriodSeconds: 30
 
       containers:
-      - name: datahub-api
+        - name: datahub-api
 
-        image: revolutio.azurecr.io/revolutio_kubernetes/datahub-api:latest
-        imagePullPolicy: Always
+          image: revolutio.azurecr.io/revolutio_kubernetes/datahub-api:latest
+          imagePullPolicy: Always
 
-        command:
-          - bash
-          - -c
-          - uvicorn app.main:app --host 0.0.0.0 --port 5003 --workers 9
+          command:
+            - bash
+            - -c
+          args:
+            - >
+              exec uvicorn app.main:app
+              --host 0.0.0.0
+              --port 5003
+              --workers 1
 
-        ports:
-        - containerPort: 5003
+          ports:
+            - name: http
+              containerPort: 5003
+              protocol: TCP
 
-        envFrom:
-        - configMapRef:
-            name: envs-production-web
+          env:
+            - name: TZ
+              value: "UTC"
 
-        - secretRef:
-            name: secrets-production-postgres-new
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
 
-        - secretRef:
-            name: secrets-production-redis
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
 
-        volumeMounts:
+            - name: OPENBAO_ROLE_ID
+              value: "datahub-api"
 
-        - name: platform-configs
-          mountPath: /app/Platform_Configs
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
 
-        - name: assets
-          mountPath: /app/assets
+            - name: OPENBAO_SECRETS
+              value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,POSTGRES_PASSWORD=postgres-core/platform_app,RABBITMQ_PASSWORD=rabbitmq/admin,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key"
 
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 5003
-          initialDelaySeconds: 60
-          periodSeconds: 30
+            - name: OPENBAO_URL_TEMPLATES
+              value: "RABBITMQ_URL=amqp://guest:$${RABBITMQ_PASSWORD}@rabbitmq:5672/,REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
 
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 5003
-          initialDelaySeconds: 120
-          periodSeconds: 30
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+
+          volumeMounts:
+
+            # OpenBao AppRole secret_id
+            - name: openbao-approle-datahub-api
+              mountPath: /openbao-approle
+              readOnly: true
+
+            # OpenBao TLS certificate
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+            # Docker: olr-config -> /olr-config
+            - name: olr-config
+              mountPath: /olr-config
+
+            # Docker: Platform_Configs -> /app/Platform_Configs
+            - name: platform-configs
+              mountPath: /app/Platform_Configs
+
+            # Docker: Platform_Data -> /app/Platform_Data
+            - name: platform-data
+              mountPath: /app/Platform_Data
+
+            # Docker: media -> /media
+            - name: media
+              mountPath: /media
+
+            # Docker: assets -> /assets
+            - name: assets
+              mountPath: /assets
+
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      restartPolicy: Always
 
       volumes:
 
-      - name: platform-configs
-        persistentVolumeClaim:
-          claimName: platform-configs-pvc-1
+        # Docker:
+        # openbao-approle-datahub-api
+        # -> /openbao-approle
+        - name: openbao-approle-datahub-api
+          persistentVolumeClaim:
+            claimName: openbao-approle-datahub-api-pvc-1
 
-      - name: assets
-        persistentVolumeClaim:
-          claimName: static-pvc-1
+        # Docker:
+        # shared-certs
+        # -> /openbao-certs
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
+
+        # Docker:
+        # olr-config
+        # -> /olr-config
+        - name: olr-config
+          persistentVolumeClaim:
+            claimName: olr-config-pvc-1
+
+        # Docker:
+        # Platform_Configs
+        # -> /app/Platform_Configs
+        - name: platform-configs
+          persistentVolumeClaim:
+            claimName: platform-configs-pvc-1
+
+        # Docker:
+        # Platform_Data
+        # -> /app/Platform_Data
+        - name: platform-data
+          persistentVolumeClaim:
+            claimName: platform-data-pvc-1
+
+        # Docker:
+        # media
+        # -> /media
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-pvc-1
+
+        # Docker:
+        # assets
+        # -> /assets
+        - name: assets
+          persistentVolumeClaim:
+            claimName: assets-pvc-1
