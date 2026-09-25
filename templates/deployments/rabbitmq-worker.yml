@@ -3,12 +3,22 @@ kind: Deployment
 metadata:
   name: rabbitmq-worker
   namespace: myapp
+  labels:
+    app: rabbitmq-worker
+
 spec:
   replicas: 1
+  revisionHistoryLimit: 5
 
   selector:
     matchLabels:
       app: rabbitmq-worker
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
 
   template:
     metadata:
@@ -19,22 +29,33 @@ spec:
       imagePullSecrets:
         - name: acr-secret
 
+      terminationGracePeriodSeconds: 30
+
       containers:
         - name: rabbitmq-worker
 
           image: revolutio.azurecr.io/revolutio_kubernetes/datahub-api:latest
           imagePullPolicy: Always
 
-          command:
+          # IMPORTANT:
+          # Keep the image ENTRYPOINT so OpenBao secrets are fetched.
+          # These become arguments to fetch-entrypoint.sh, which then
+          # executes /wait-for-rabbit.sh.
+          args:
             - bash
             - /wait-for-rabbit.sh
 
           env:
 
+            # -------------------------
+            # General
+            # -------------------------
             - name: TZ
               value: "UTC"
 
+            # -------------------------
             # PostgreSQL
+            # -------------------------
             - name: POSTGRES_HOST
               valueFrom:
                 configMapKeyRef:
@@ -59,7 +80,9 @@ spec:
                   name: envs-production-web
                   key: POSTGRES_USER
 
+            # -------------------------
             # OpenBao
+            # -------------------------
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -93,6 +116,8 @@ spec:
 
             - name: assets
               mountPath: /app/assets
+
+      restartPolicy: Always
 
       volumes:
 
