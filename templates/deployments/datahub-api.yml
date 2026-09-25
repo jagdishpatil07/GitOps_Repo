@@ -8,7 +8,6 @@ metadata:
 
 spec:
   replicas: 1
-
   revisionHistoryLimit: 5
 
   selector:
@@ -39,9 +38,9 @@ spec:
           imagePullPolicy: Always
 
           # IMPORTANT:
-          # Do NOT set command/args here.
-          # This allows the image ENTRYPOINT to run the
-          # OpenBao secret injection script.
+          # Do NOT specify command/args here.
+          # This allows /usr/local/bin/fetch-entrypoint.sh
+          # to run and retrieve secrets from OpenBao.
 
           ports:
             - name: http
@@ -49,13 +48,43 @@ spec:
               protocol: TCP
 
           env:
+
+            # -------------------------
+            # General
+            # -------------------------
             - name: TZ
               value: "UTC"
 
-            # =========================
-            # OpenBao
-            # =========================
+            # -------------------------
+            # PostgreSQL
+            # -------------------------
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: envs-production-web
+                  key: POSTGRES_HOST
 
+            - name: POSTGRES_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: envs-production-web
+                  key: POSTGRES_PORT
+
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: envs-production-web
+                  key: POSTGRES_DB
+
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: envs-production-web
+                  key: POSTGRES_USER
+
+            # -------------------------
+            # OpenBao
+            # -------------------------
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -84,25 +113,13 @@ spec:
 
           volumeMounts:
 
-            # =========================
-            # OpenBao AppRole
-            # =========================
-
             - name: openbao-approle-datahub-api
               mountPath: /openbao-approle
               readOnly: true
 
-            # =========================
-            # OpenBao TLS
-            # =========================
-
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
-
-            # =========================
-            # Application volumes
-            # =========================
 
             - name: olr-config
               mountPath: /olr-config
@@ -118,10 +135,6 @@ spec:
 
             - name: assets
               mountPath: /assets
-
-          # =========================
-          # Health checks
-          # =========================
 
           startupProbe:
             httpGet:
@@ -151,58 +164,29 @@ spec:
 
       volumes:
 
-        # =========================
-        # OpenBao AppRole
-        # =========================
-
         - name: openbao-approle-datahub-api
           persistentVolumeClaim:
             claimName: openbao-approle-datahub-api-pvc-1
-
-        # =========================
-        # OpenBao TLS certificate
-        # =========================
 
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
-        # =========================
-        # OLR config
-        # /data/nfs/olr-config
-        # =========================
-
         - name: olr-config
           persistentVolumeClaim:
             claimName: olr-config-pvc-1
-
-        # =========================
-        # Platform Configs
-        # =========================
 
         - name: platform-configs
           persistentVolumeClaim:
             claimName: platform-configs-pvc-1
 
-        # =========================
-        # Platform Data
-        # =========================
-
         - name: platform-data
           persistentVolumeClaim:
             claimName: platform-data-pvc-1
 
-        # =========================
-        # Media
-        # =========================
-
         - name: media
           persistentVolumeClaim:
             claimName: media-pvc-1
-
-        # =========================
-        # Assets
-        # =========================
 
         - name: assets
           persistentVolumeClaim:
