@@ -26,10 +26,6 @@ spec:
         app: dashboard-api
 
     spec:
-      securityContext:
-        runAsNonRoot: true
-        fsGroup: 70070
-
       imagePullSecrets:
         - name: acr-secret
 
@@ -42,7 +38,9 @@ spec:
             - /start.sh
 
           ports:
-            - containerPort: 5002
+            - name: http
+              containerPort: 5002
+              protocol: TCP
 
           env:
             - name: TZ
@@ -72,6 +70,20 @@ spec:
           envFrom:
             - configMapRef:
                 name: envs-production-web
+
+          readinessProbe:
+            tcpSocket:
+              port: 5002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+          livenessProbe:
+            tcpSocket:
+              port: 5002
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
 
           resources:
             requests:
@@ -127,3 +139,7 @@ spec:
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
