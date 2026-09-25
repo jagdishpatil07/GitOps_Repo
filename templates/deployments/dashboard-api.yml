@@ -56,7 +56,7 @@ spec:
               value: "dashboard-api"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/secret_id"
+              value: "/openbao/approle-secrets/dashboard-api/secret_id"
 
             - name: OPENBAO_SECRETS
               value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin"
@@ -76,14 +76,12 @@ spec:
               port: 5002
             initialDelaySeconds: 30
             periodSeconds: 10
-            timeoutSeconds: 5
 
           livenessProbe:
             tcpSocket:
               port: 5002
             initialDelaySeconds: 60
             periodSeconds: 20
-            timeoutSeconds: 5
 
           resources:
             requests:
@@ -108,7 +106,7 @@ spec:
               readOnly: true
 
             - name: openbao-approle-dashboard-api
-              mountPath: /openbao-approle
+              mountPath: /openbao/approle-secrets/dashboard-api
               readOnly: true
 
             - name: shared-certs
