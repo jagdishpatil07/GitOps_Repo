@@ -3,12 +3,23 @@ kind: Deployment
 metadata:
   name: rabbitmq
   namespace: myapp
+  labels:
+    app: rabbitmq
+
 spec:
   replicas: 1
+
+  revisionHistoryLimit: 5
 
   selector:
     matchLabels:
       app: rabbitmq
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
 
   template:
     metadata:
@@ -16,36 +27,130 @@ spec:
         app: rabbitmq
 
     spec:
+      imagePullSecrets:
+        - name: acr-secret
+
+      hostname: rabbitmq
+
+      terminationGracePeriodSeconds: 30
+
       containers:
-      - name: rabbitmq
-        image: revolutio.azurecr.io/revolutio_kubernetes/rabbitmq:latest
+        - name: rabbitmq
 
-        imagePullPolicy: Always
+          image: revolutio.azurecr.io/revolutio_kubernetes/rabbitmq:latest
+          imagePullPolicy: Always
 
-        ports:
-        - containerPort: 5672
+          ports:
+            - name: amqp
+              containerPort: 5672
+              protocol: TCP
 
-        env:
-        - name: RABBITMQ_DEFAULT_USER
-          valueFrom:
-            secretKeyRef:
-              name: rabbitmq-secret
-              key: RABBITMQ_DEFAULT_USER
+          env:
 
-        - name: RABBITMQ_DEFAULT_PASS
-          valueFrom:
-            secretKeyRef:
-              name: rabbitmq-secret
-              key: RABBITMQ_DEFAULT_PASS
+            # =========================
+            # RabbitMQ
+            # =========================
 
-        - name: RABBITMQ_ERLANG_COOKIE
-          value: secretcookievalue
+            - name: RABBITMQ_DEFAULT_USER
+              value: "guest"
 
-        volumeMounts:
-        - name: rabbitmq-storage
-          mountPath: /var/lib/rabbitmq
+            # =========================
+            # OpenBao
+            # =========================
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "rabbitmq"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: "RABBITMQ_DEFAULT_PASS=rabbitmq/admin"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+
+          volumeMounts:
+
+            # =========================
+            # RabbitMQ persistent data
+            # =========================
+
+            - name: rabbitmq-storage
+              mountPath: /var/lib/rabbitmq
+
+            # =========================
+            # OpenBao AppRole
+            # =========================
+
+            - name: openbao-approle-rabbitmq
+              mountPath: /openbao-approle
+              readOnly: true
+
+            # =========================
+            # OpenBao TLS certificate
+            # =========================
+
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+          startupProbe:
+            tcpSocket:
+              port: amqp
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+
+          readinessProbe:
+            tcpSocket:
+              port: amqp
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            tcpSocket:
+              port: amqp
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      restartPolicy: Always
 
       volumes:
-      - name: rabbitmq-storage
-        persistentVolumeClaim:
-          claimName: rabbitmq-pvc-1
+
+        # =========================
+        # RabbitMQ data
+        # =========================
+
+        - name: rabbitmq-storage
+          persistentVolumeClaim:
+            claimName: rabbitmq-pvc-1
+
+        # =========================
+        # OpenBao AppRole
+        # =========================
+
+        - name: openbao-approle-rabbitmq
+          persistentVolumeClaim:
+            claimName: openbao-approle-rabbitmq-pvc-1
+
+        # =========================
+        # OpenBao TLS
+        # =========================
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
