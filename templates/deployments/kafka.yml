@@ -26,6 +26,8 @@ spec:
       imagePullSecrets:
         - name: acr-secret
 
+      restartPolicy: Always
+
       containers:
         - name: kafka
 
@@ -33,8 +35,9 @@ spec:
           imagePullPolicy: Always
 
           ports:
-            - containerPort: 9092
-              name: kafka
+            - name: kafka
+              containerPort: 9092
+              protocol: TCP
 
           env:
             - name: COMPONENT
@@ -85,31 +88,45 @@ spec:
               cpu: "2"
               memory: "4Gi"
 
+          volumeMounts:
+            - name: kafka-data
+              mountPath: /var/lib/kafka/data
+
+            - name: kafka-tmp
+              mountPath: /tmp
+
+            - name: kafka-logs
+              mountPath: /var/log/kafka
+
           startupProbe:
             tcpSocket:
               port: 9092
-            failureThreshold: 30
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
 
           readinessProbe:
             tcpSocket:
               port: 9092
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
 
           livenessProbe:
             tcpSocket:
               port: 9092
             initialDelaySeconds: 60
             periodSeconds: 20
-
-          volumeMounts:
-            - name: kafka-data
-              mountPath: /var/lib/kafka/data
+            timeoutSeconds: 5
+            failureThreshold: 3
 
       volumes:
         - name: kafka-data
-          persistentVolumeClaim:
-            claimName: kafka-data-pvc
+          emptyDir: {}
 
-      restartPolicy: Always
+        - name: kafka-tmp
+          emptyDir: {}
+
+        - name: kafka-logs
+          emptyDir: {}
