@@ -1,5 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: pgbouncer
   namespace: {{ .Values.namespace }}
@@ -52,26 +53,17 @@ spec:
                   - killall -INT pgbouncer && sleep 120
 
           ########################################################
-          # ✅ SAME ENV VARIABLES (NO CHANGE)
+          # ✅ SAME ENV VARIABLES
           ########################################################
           env:
             - name: DB_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.pgbouncer.configMap }}
-                  key: POSTGRES_HOST_INNER
+              value: "postgres-core"
 
             - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.pgbouncer.secret }}
-                  key: POSTGRES_PASSWORD
+              value: "STATIC_PASSWORD"
 
             - name: DB_USER
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.pgbouncer.configMap }}
-                  key: POSTGRES_USER
+              value: "platform_app"
 
             - name: POOL_MODE
               value: transaction
