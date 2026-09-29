@@ -1,13 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: web
-  namespace: myapp
+  namespace: {{ .Values.namespace }}
   labels:
     service: web
 
 spec:
-  replicas: 1
+  replicas: {{ .Values.web.replicaCount }}
 
   selector:
     matchLabels:
@@ -20,6 +21,7 @@ spec:
       maxSurge: 25%
 
   revisionHistoryLimit: 10
+
   progressDeadlineSeconds: 600
 
   template:
@@ -29,7 +31,7 @@ spec:
 
     spec:
       imagePullSecrets:
-        - name: acr-secret
+        - name: {{ .Values.global.imagePullSecrets.name }}
 
       terminationGracePeriodSeconds: 15
 
@@ -40,57 +42,53 @@ spec:
 
       volumes:
 
-        # ============================================================
+        # ==========================================================
         # Application persistent storage
-        # ============================================================
+        # ==========================================================
 
         - name: static-storage
           persistentVolumeClaim:
-            claimName: static-pvc-1
+            claimName: {{ .Values.web.pvc.static }}
 
         - name: media-storage
           persistentVolumeClaim:
-            claimName: media-pvc-1
+            claimName: {{ .Values.web.pvc.media }}
 
         - name: assets-storage
           persistentVolumeClaim:
-            claimName: assets-pvc-1
+            claimName: {{ .Values.web.pvc.assets }}
 
         - name: platformconfig-storage
           persistentVolumeClaim:
-            claimName: platform-configs-pvc-1
+            claimName: {{ .Values.web.pvc.platformConfigs }}
 
         - name: templates-storage
           persistentVolumeClaim:
-            claimName: user-defined-template-pvc-2
+            claimName: {{ .Values.web.pvc.templates }}
 
         - name: computation-storage
           persistentVolumeClaim:
-            claimName: computation-storage-pvc-1
+            claimName: {{ .Values.web.pvc.computation }}
 
-        # ============================================================
+        # ==========================================================
         # OpenBao AppRole
-        # Docker:
-        # /openbao-approle/secret_id
-        # ============================================================
+        # ==========================================================
 
         - name: openbao-approle
           persistentVolumeClaim:
             claimName: openbao-approle-revolutio-app-pvc-1
 
-        # ============================================================
+        # ==========================================================
         # OpenBao TLS
-        # Docker:
-        # /openbao-certs/tls.crt
-        # ============================================================
+        # ==========================================================
 
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
-        # ============================================================
+        # ==========================================================
         # Docker tmpfs equivalents
-        # ============================================================
+        # ==========================================================
 
         - name: opt-temp
           emptyDir:
@@ -116,24 +114,10 @@ spec:
 
         - name: web
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+          image: {{ .Values.web.image }}
           imagePullPolicy: Always
 
-          # ==========================================================
-          # IMPORTANT
-          #
-          # Do NOT define "command".
-          #
-          # Image ENTRYPOINT:
-          # /usr/local/bin/fetch-entrypoint.sh
-          #
-          # This performs OpenBao authentication and exports secrets
-          # before executing these arguments.
-          #
-          # Docker Compose command:
-          # bash -c 'gunicorn ...'
-          # ==========================================================
-
+          # Keep the image ENTRYPOINT.
           args:
             - bash
             - -c
@@ -150,15 +134,11 @@ spec:
               containerPort: 5000
               protocol: TCP
 
-          # ==========================================================
-          # Environment
-          # ==========================================================
-
           env:
 
-            # --------------------------------------------------------
+            # ========================================================
             # Application
-            # --------------------------------------------------------
+            # ========================================================
 
             - name: TZ
               value: "UTC"
@@ -178,15 +158,9 @@ spec:
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
-            # --------------------------------------------------------
+            # ========================================================
             # Redis
-            #
-            # Explicitly set these because Kubernetes automatically
-            # creates REDIS_* service environment variables.
-            #
-            # Without this, REDIS_PORT could become:
-            # tcp://<cluster-ip>:6379
-            # --------------------------------------------------------
+            # ========================================================
 
             - name: REDIS_HOST
               value: "redis"
@@ -194,9 +168,9 @@ spec:
             - name: REDIS_PORT
               value: "6379"
 
-            # --------------------------------------------------------
+            # ========================================================
             # OpenBao
-            # --------------------------------------------------------
+            # ========================================================
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -213,56 +187,28 @@ spec:
             - name: OPENBAO_SECRETS
               value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,DJANGO_SUPERUSER_PASSWORD=django/superuser_password,REDIS_PASSWORD=cache/redis,KEYDB_PASSWORD=cache/keydb,POSTGRES_PASSWORD=postgres-core/platform_app"
 
-            # --------------------------------------------------------
-            # OpenBao-generated URLs
-            #
-            # $$ preserves the $ for fetch-entrypoint.sh so the
-            # fetched secret values are expanded at runtime.
-            # --------------------------------------------------------
-
             - name: OPENBAO_URL_TEMPLATES
               value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379"
 
-          # ==========================================================
-          # Existing non-secret configuration
-          #
-          # Explicit env values above take precedence over envFrom
-          # values with the same variable name.
-          # ==========================================================
-
           envFrom:
             - configMapRef:
-                name: envs-production-web
+                name: {{ .Values.web.configMaps.web }}
 
             - configMapRef:
-                name: envs-production-postgres-core
-
-          # ==========================================================
-          # Resources
-          #
-          # Kept at your current Kubernetes allocation.
-          # ==========================================================
+                name: {{ .Values.web.configMaps.postgres }}
 
           resources:
             requests:
-              cpu: "2"
-              memory: "8Gi"
+              cpu: {{ .Values.web.resources.requests.cpu | quote }}
+              memory: {{ .Values.web.resources.requests.memory | quote }}
 
             limits:
-              cpu: "8"
-              memory: "32Gi"
+              cpu: {{ .Values.web.resources.limits.cpu | quote }}
+              memory: {{ .Values.web.resources.limits.memory | quote }}
 
-          # ==========================================================
+          # ========================================================
           # Startup probe
-          #
-          # Docker Compose:
-          # start_period: 360s
-          #
-          # 12 failures x 30 seconds = 360 seconds.
-          #
-          # This prevents Kubernetes from killing the container while
-          # static publishing/bootstrap/Gunicorn startup is occurring.
-          # ==========================================================
+          # ========================================================
 
           startupProbe:
             exec:
@@ -275,11 +221,9 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 12
 
-          # ==========================================================
+          # ========================================================
           # Readiness probe
-          #
-          # Same healthcheck used by Docker Compose.
-          # ==========================================================
+          # ========================================================
 
           readinessProbe:
             exec:
@@ -293,11 +237,9 @@ spec:
             failureThreshold: 5
             successThreshold: 1
 
-          # ==========================================================
+          # ========================================================
           # Liveness probe
-          #
-          # Same application healthcheck.
-          # ==========================================================
+          # ========================================================
 
           livenessProbe:
             exec:
@@ -311,10 +253,6 @@ spec:
             failureThreshold: 5
             successThreshold: 1
 
-          # ==========================================================
-          # Container security
-          # ==========================================================
-
           securityContext:
             runAsUser: 70070
             runAsNonRoot: true
@@ -324,11 +262,11 @@ spec:
               drop:
                 - ALL
 
-          # ==========================================================
-          # Persistent mounts
-          # ==========================================================
-
           volumeMounts:
+
+            # ========================================================
+            # Application storage
+            # ========================================================
 
             - name: static-storage
               mountPath: /opt/revolutio/static
@@ -348,9 +286,9 @@ spec:
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
 
-          # ==========================================================
-          # OpenBao mounts
-          # ==========================================================
+            # ========================================================
+            # OpenBao
+            # ========================================================
 
             - name: openbao-approle
               mountPath: /openbao-approle
@@ -360,9 +298,9 @@ spec:
               mountPath: /openbao-certs
               readOnly: true
 
-          # ==========================================================
-          # Docker tmpfs equivalents
-          # ==========================================================
+            # ========================================================
+            # Docker tmpfs equivalents
+            # ========================================================
 
             - name: opt-temp
               mountPath: /opt/temp
