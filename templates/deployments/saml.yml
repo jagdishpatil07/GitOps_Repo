@@ -187,13 +187,23 @@ spec:
             - name: gunicorn-storage
               mountPath: /home/revolutio/.gunicorn
 
+          # IMPORTANT:
+          # Docker image ENTRYPOINT is /usr/local/bin/fetch-entrypoint.sh.
+          # This runs OpenBao authentication/secret fetching before Gunicorn.
           command:
-            - /bin/bash
-            - -c
+            - /usr/local/bin/fetch-entrypoint.sh
 
+          # Equivalent to Docker Compose:
+          #
+          # command: bash -c 'gunicorn saml.asgi:application
+          #   --bind 0.0.0.0:9000
+          #   --workers 1
+          #   --worker-class uvicorn.workers.UvicornWorker'
           args:
+            - bash
+            - -c
             - >
-              exec gunicorn saml.asgi:application
+              gunicorn saml.asgi:application
               --bind 0.0.0.0:9000
               --workers 1
               --worker-class uvicorn.workers.UvicornWorker
@@ -204,9 +214,9 @@ spec:
                 - /bin/bash
                 - /opt/revolutio/healthcheck_saml.sh
                 - "9000"
-            periodSeconds: 10
+            periodSeconds: 30
             timeoutSeconds: 10
-            failureThreshold: 30
+            failureThreshold: 5
 
           readinessProbe:
             exec:
@@ -214,10 +224,10 @@ spec:
                 - /bin/bash
                 - /opt/revolutio/healthcheck_saml.sh
                 - "9000"
-            initialDelaySeconds: 20
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
+            successThreshold: 1
 
           livenessProbe:
             exec:
@@ -225,10 +235,10 @@ spec:
                 - /bin/bash
                 - /opt/revolutio/healthcheck_saml.sh
                 - "9000"
-            initialDelaySeconds: 60
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
+            successThreshold: 1
 
           terminationMessagePath: /tmp/web-log
           terminationMessagePolicy: File
