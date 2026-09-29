@@ -1,46 +1,35 @@
 apiVersion: batch/v1
 kind: Job
-
 metadata:
   name: platform-migrator
   namespace: myapp
-
 spec:
   backoffLimit: 1
-
   template:
     metadata:
       labels:
         app: platform-migrator
-
     spec:
       restartPolicy: Never
-
       imagePullSecrets:
         - name: acr-secret
 
       containers:
         - name: platform-migrator
-
           image: revolutio.azurecr.io/revolutio_kubernetes/platform-migrator:v0011
           imagePullPolicy: Always
 
           env:
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
-
             - name: OPENBAO_CACERT
               value: "/openbao-certs/tls.crt"
-
             - name: OPENBAO_ROLE_ID
               value: "platform-migrator"
-
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao-approle/secret_id"
-
             - name: PM_DOCKER
               value: "0"
-
             - name: TZ
               value: "UTC"
 
