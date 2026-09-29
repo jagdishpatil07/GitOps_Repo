@@ -1,22 +1,226 @@
-# ============================================================
-# RQ SCHEDULER
-# ============================================================
-rqscheduler:
-  replicaCount: 1
+apiVersion: apps/v1
+kind: Deployment
 
-  image: revolutio.azurecr.io/revolutio_kubernetes/rqscheduler:latest
+metadata:
+  name: rqscheduler
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: rqscheduler
 
-  configMap: envs-production-web
+spec:
+  replicas: {{ .Values.rqscheduler.replicaCount }}
 
-  pvc:
-    static: static-pvc-1
-    templates: user-defined-template-pvc-2
-    platformConfigs: platform-configs-pvc-1
+  selector:
+    matchLabels:
+      service: rqscheduler
 
-  resources:
-    requests:
-      cpu: "100m"
-      memory: 256Mi
-    limits:
-      cpu: "500m"
-      memory: 512Mi
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+
+  progressDeadlineSeconds: 600
+
+  template:
+    metadata:
+      labels:
+        service: rqscheduler
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      securityContext: {}
+
+      terminationGracePeriodSeconds: 30
+
+      restartPolicy: Always
+
+      dnsPolicy: ClusterFirst
+
+      volumes:
+
+        # ======================================================
+        # Application storage
+        # ======================================================
+
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.rqscheduler.pvc.static }}
+
+        - name: templates-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.rqscheduler.pvc.templates }}
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.rqscheduler.pvc.platformConfigs }}
+
+        # ======================================================
+        # OpenBao AppRole
+        # ======================================================
+
+        - name: openbao-approle
+          persistentVolumeClaim:
+            claimName: openbao-approle-rqscheduler-pvc-1
+
+        # ======================================================
+        # OpenBao TLS
+        # ======================================================
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
+
+        # ======================================================
+        # /opt/temp
+        # ======================================================
+
+        - name: temp-storage
+          emptyDir:
+            medium: Memory
+
+      containers:
+        - name: rqscheduler
+
+          image: "{{ .Values.rqscheduler.image }}"
+
+          imagePullPolicy: Always
+
+          # Keep image ENTRYPOINT.
+          # Docker Compose command: /app/start
+          args:
+            - /app/start
+
+          securityContext:
+            runAsUser: 70070
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+
+          resources:
+            requests:
+              cpu: {{ .Values.rqscheduler.resources.requests.cpu | quote }}
+              memory: {{ .Values.rqscheduler.resources.requests.memory | quote }}
+
+            limits:
+              cpu: {{ .Values.rqscheduler.resources.limits.cpu | quote }}
+              memory: {{ .Values.rqscheduler.resources.limits.memory | quote }}
+
+          env:
+
+            # ==================================================
+            # General
+            # ==================================================
+
+            - name: TZ
+              value: "UTC"
+
+            # ==================================================
+            # OpenBao
+            # ==================================================
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "rqscheduler"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: "REDIS_PASSWORD=cache/redis"
+
+            - name: OPENBAO_URL_TEMPLATES
+              value: "REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1"
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.rqscheduler.configMap }}
+
+          ports:
+            - name: rqscheduler
+              containerPort: 8899
+              protocol: TCP
+
+          volumeMounts:
+
+            # ==================================================
+            # Application storage
+            # ==================================================
+
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+
+            - name: templates-storage
+              mountPath: /opt/revolutio/Core/templates/user_defined_template
+
+            - name: platformconfig-storage
+              mountPath: /opt/revolutio/Platform_Configs
+
+            # ==================================================
+            # OpenBao AppRole
+            # ==================================================
+
+            - name: openbao-approle
+              mountPath: /openbao-approle
+              readOnly: true
+
+            # ==================================================
+            # OpenBao TLS
+            # ==================================================
+
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+            # ==================================================
+            # /opt/temp
+            # ==================================================
+
+            - name: temp-storage
+              mountPath: /opt/temp
+
+          # ====================================================
+          # Health checks
+          # ====================================================
+
+          startupProbe:
+            exec:
+              command:
+                - pidof
+                - -x
+                - rqscheduler
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+
+          readinessProbe:
+            exec:
+              command:
+                - pidof
+                - -x
+                - rqscheduler
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            exec:
+              command:
+                - pidof
+                - -x
+                - rqscheduler
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          terminationMessagePath: /dev/termination-log
+
+          terminationMessagePolicy: File
