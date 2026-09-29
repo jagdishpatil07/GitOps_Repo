@@ -127,23 +127,7 @@ spec:
               mountPath: /openbao-certs
               readOnly: true
 
-          readinessProbe:
-            exec:
-              command:
-                - kong
-                - health
-            periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 3
 
-          livenessProbe:
-            exec:
-              command:
-                - kong
-                - health
-            periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 3
 
       volumes:
         - name: openbao-approle
