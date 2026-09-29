@@ -1,11 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: pgbouncer1-new
-  namespace: myapp
+  namespace: {{ .Values.namespace }}
 
 spec:
-  replicas: 1
+  replicas: {{ .Values.pgbouncer.replicaCount }}
 
   selector:
     matchLabels:
@@ -18,12 +19,12 @@ spec:
 
     spec:
       imagePullSecrets:
-        - name: acr-secret
+        - name: {{ .Values.global.imagePullSecrets.name }}
 
       containers:
         - name: pgbouncer
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/pgbouncer:latest
+          image: {{ .Values.pgbouncer.image }}
           imagePullPolicy: Always
 
           ports:
@@ -32,7 +33,10 @@ spec:
               protocol: TCP
 
           env:
+            # ======================================================
             # PostgreSQL
+            # ======================================================
+
             - name: POSTGRESQL_HOST
               value: "postgres-core"
 
@@ -42,7 +46,10 @@ spec:
             - name: DB_USER
               value: "platform_app"
 
+            # ======================================================
             # PgBouncer
+            # ======================================================
+
             - name: AUTH_TYPE
               value: "scram-sha-256"
 
@@ -103,7 +110,10 @@ spec:
             - name: STATS_USERS
               value: "platform_app"
 
+            # ======================================================
             # OpenBao
+            # ======================================================
+
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -121,33 +131,39 @@ spec:
 
           volumeMounts:
 
-            # IMPORTANT:
-            # Compose uses:
-            # /etc/pgbouncer -> tmpfs
-            # This gives the startup script a writable location
-            # for generated PgBouncer configuration/auth files.
+            # ======================================================
+            # PgBouncer writable configuration
+            # ======================================================
+
             - name: pgbouncer-config
               mountPath: /etc/pgbouncer
 
-            # OpenBao AppRole Secret ID
+            # ======================================================
+            # OpenBao AppRole
+            # ======================================================
+
             - name: openbao-approle
               mountPath: /openbao-approle
               readOnly: true
 
-            # OpenBao CA certificate
+            # ======================================================
+            # OpenBao CA
+            # ======================================================
+
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
 
-            # Runtime directory equivalent to Compose tmpfs
+            # ======================================================
+            # Runtime directories
+            # ======================================================
+
             - name: pgbouncer-run
               mountPath: /var/run/pgbouncer
 
-            # Log directory equivalent to Compose tmpfs
             - name: pgbouncer-log
               mountPath: /var/log/pgbouncer
 
-            # /tmp equivalent to Compose tmpfs
             - name: tmp
               mountPath: /tmp
 
@@ -170,52 +186,64 @@ spec:
             successThreshold: 1
 
           resources:
-            limits:
-              cpu: "1"
-              memory: 1Gi
             requests:
-              cpu: "100m"
-              memory: 128Mi
+              cpu: {{ .Values.pgbouncer.resources.requests.cpu | quote }}
+              memory: {{ .Values.pgbouncer.resources.requests.memory | quote }}
+
+            limits:
+              cpu: {{ .Values.pgbouncer.resources.limits.cpu | quote }}
+              memory: {{ .Values.pgbouncer.resources.limits.memory | quote }}
 
       volumes:
 
-        # Equivalent to Docker Compose:
-        #
-        # tmpfs:
-        #   - /etc/pgbouncer:mode=770,size=1000m,uid=70,gid=70
-        #
+        # ==========================================================
+        # /etc/pgbouncer
+        # ==========================================================
+
         - name: pgbouncer-config
           emptyDir:
             medium: Memory
             sizeLimit: 1Gi
 
-        # Equivalent to:
-        # /var/run/pgbouncer tmpfs
+        # ==========================================================
+        # /var/run/pgbouncer
+        # ==========================================================
+
         - name: pgbouncer-run
           emptyDir:
             medium: Memory
             sizeLimit: 1Gi
 
-        # Equivalent to:
-        # /var/log/pgbouncer tmpfs
+        # ==========================================================
+        # /var/log/pgbouncer
+        # ==========================================================
+
         - name: pgbouncer-log
           emptyDir:
             medium: Memory
             sizeLimit: 1Gi
 
-        # Equivalent to:
-        # /tmp tmpfs
+        # ==========================================================
+        # /tmp
+        # ==========================================================
+
         - name: tmp
           emptyDir:
             medium: Memory
             sizeLimit: 1Gi
 
+        # ==========================================================
         # OpenBao AppRole Secret ID
+        # ==========================================================
+
         - name: openbao-approle
           persistentVolumeClaim:
-            claimName: openbao-approle-pgbouncer1-new-pvc-1
+            claimName: {{ .Values.pgbouncer.pvc.openbaoAppRole }}
 
+        # ==========================================================
         # OpenBao CA certificate
+        # ==========================================================
+
         - name: shared-certs
           persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
+            claimName: {{ .Values.pgbouncer.pvc.sharedCerts }}
