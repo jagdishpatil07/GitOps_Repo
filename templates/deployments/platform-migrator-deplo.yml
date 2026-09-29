@@ -1,5 +1,6 @@
 apiVersion: batch/v1
 kind: Job
+
 metadata:
   name: platform-migrator
   namespace: myapp
@@ -8,6 +9,10 @@ spec:
   backoffLimit: 1
 
   template:
+    metadata:
+      labels:
+        app: platform-migrator
+
     spec:
       restartPolicy: Never
 
@@ -16,6 +21,7 @@ spec:
 
       containers:
         - name: platform-migrator
+
           image: revolutio.azurecr.io/revolutio_kubernetes/platform-migrator:v0011
           imagePullPolicy: Always
 
