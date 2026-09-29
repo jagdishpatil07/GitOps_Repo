@@ -14,26 +14,26 @@ spec:
     matchLabels:
       app: kong
 
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+
   template:
     metadata:
       labels:
         app: kong
 
     spec:
+      restartPolicy: Always
+
       imagePullSecrets:
         - name: acr-secret
 
-      restartPolicy: Always
       terminationGracePeriodSeconds: 30
-
-      volumes:
-        - name: openbao-approle
-          persistentVolumeClaim:
-            claimName: openbao-approle-kong-pvc-1
-
-        - name: shared-certs
-          persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
 
       containers:
         - name: kong
@@ -48,7 +48,21 @@ spec:
               drop:
                 - ALL
 
+          ports:
+            - name: admin
+              containerPort: 8001
+
+            - name: proxy
+              containerPort: 8002
+
+            - name: status
+              containerPort: 8100
+
           env:
+
+            - name: KONG_ADMIN_LISTEN
+              value: "0.0.0.0:8001"
+
             - name: KONG_DATABASE
               value: "off"
 
@@ -58,17 +72,8 @@ spec:
             - name: KONG_LOG_LEVEL
               value: "debug"
 
-            - name: KONG_ADMIN_LISTEN
-              value: "0.0.0.0:8001"
-
-            - name: KONG_PROXY_LISTEN
-              value: "0.0.0.0:8002"
-
-            - name: KONG_STATUS_LISTEN
-              value: "0.0.0.0:8100"
-
-            - name: KONG_PLUGINS
-              value: "bundled,user-rate-limit,prometheus"
+            - name: KONG_LUA_PACKAGE_PATH
+              value: "/custom-plugins/?.lua;/custom-plugins/?/init.lua;/custom-plugins/kong/?.lua;/custom-plugins/kong/?/init.lua;;"
 
             - name: KONG_NGINX_HTTP_LUA_SHARED_DICT
               value: "rate_limit_store 10m"
@@ -76,8 +81,14 @@ spec:
             - name: KONG_NGINX_MAIN_ENV
               value: "REDIS_PASSWORD"
 
-            - name: KONG_LUA_PACKAGE_PATH
-              value: "/custom-plugins/?.lua;/custom-plugins/?/init.lua;/custom-plugins/kong/?.lua;/custom-plugins/kong/?/init.lua;;"
+            - name: KONG_PLUGINS
+              value: "bundled,user-rate-limit,prometheus"
+
+            - name: KONG_PROXY_LISTEN
+              value: "0.0.0.0:8002"
+
+            - name: KONG_STATUS_LISTEN
+              value: "0.0.0.0:8100"
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -98,16 +109,6 @@ spec:
             - configMapRef:
                 name: envs-production-web
 
-          ports:
-            - name: admin
-              containerPort: 8001
-
-            - name: proxy
-              containerPort: 8002
-
-            - name: status
-              containerPort: 8100
-
           resources:
             requests:
               cpu: "250m"
@@ -127,22 +128,37 @@ spec:
               readOnly: true
 
           startupProbe:
-            tcpSocket:
-              port: 8002
+            exec:
+              command:
+                - kong
+                - health
             periodSeconds: 10
-            timeoutSeconds: 5
+            timeoutSeconds: 10
             failureThreshold: 30
 
           readinessProbe:
-            tcpSocket:
-              port: 8002
+            exec:
+              command:
+                - kong
+                - health
             periodSeconds: 10
-            timeoutSeconds: 5
+            timeoutSeconds: 10
             failureThreshold: 3
 
           livenessProbe:
-            tcpSocket:
-              port: 8002
-            periodSeconds: 20
-            timeoutSeconds: 5
+            exec:
+              command:
+                - kong
+                - health
+            periodSeconds: 30
+            timeoutSeconds: 10
             failureThreshold: 3
+
+      volumes:
+        - name: openbao-approle
+          persistentVolumeClaim:
+            claimName: openbao-approle-kong-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
