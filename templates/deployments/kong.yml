@@ -14,27 +14,19 @@ spec:
     matchLabels:
       app: kong
 
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
-
   template:
     metadata:
       labels:
         app: kong
 
     spec:
-      restartPolicy: Always
-
       imagePullSecrets:
         - name: acr-secret
 
+      restartPolicy: Always
       terminationGracePeriodSeconds: 30
 
       volumes:
-
         - name: openbao-approle
           persistentVolumeClaim:
             claimName: openbao-approle-kong-pvc-1
@@ -42,11 +34,6 @@ spec:
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
-
-        - name: tmp
-          emptyDir:
-            medium: Memory
-            sizeLimit: 512Mi
 
       containers:
         - name: kong
@@ -56,23 +43,12 @@ spec:
 
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
             capabilities:
               drop:
                 - ALL
 
-          ports:
-            - name: admin
-              containerPort: 8001
-
-            - name: proxy
-              containerPort: 8002
-
-            - name: status
-              containerPort: 8100
-
           env:
-
             - name: KONG_DATABASE
               value: "off"
 
@@ -122,6 +98,16 @@ spec:
             - configMapRef:
                 name: envs-production-web
 
+          ports:
+            - name: admin
+              containerPort: 8001
+
+            - name: proxy
+              containerPort: 8002
+
+            - name: status
+              containerPort: 8100
+
           resources:
             requests:
               cpu: "250m"
@@ -132,7 +118,6 @@ spec:
               memory: "1Gi"
 
           volumeMounts:
-
             - name: openbao-approle
               mountPath: /openbao-approle
               readOnly: true
@@ -140,9 +125,6 @@ spec:
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
-
-            - name: tmp
-              mountPath: /tmp
 
           startupProbe:
             tcpSocket:
