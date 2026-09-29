@@ -59,7 +59,6 @@ spec:
               containerPort: 8100
 
           env:
-
             - name: KONG_ADMIN_LISTEN
               value: "0.0.0.0:8001"
 
@@ -86,6 +85,9 @@ spec:
 
             - name: KONG_PROXY_LISTEN
               value: "0.0.0.0:8002"
+
+            - name: KONG_ADMIN_LISTEN
+              value: "0.0.0.0:8001"
 
             - name: KONG_STATUS_LISTEN
               value: "0.0.0.0:8100"
@@ -115,8 +117,32 @@ spec:
               memory: "1Gi"
 
             limits:
-              cpu: "1"
+              cpu: "2"
               memory: "4Gi"
+
+          startupProbe:
+            tcpSocket:
+              port: 8100
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+
+          readinessProbe:
+            tcpSocket:
+              port: 8100
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            tcpSocket:
+              port: 8100
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
 
           volumeMounts:
             - name: openbao-approle
@@ -126,8 +152,6 @@ spec:
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
-
-
 
       volumes:
         - name: openbao-approle
