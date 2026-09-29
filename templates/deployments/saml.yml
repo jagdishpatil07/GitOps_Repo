@@ -2,120 +2,52 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: saml
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    app: saml
-    service: saml
+  namespace: myapp
 
 spec:
   replicas: 1
 
   selector:
     matchLabels:
-      app: saml
-
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
-
-  revisionHistoryLimit: 10
-  progressDeadlineSeconds: 600
+      service: saml
 
   template:
     metadata:
       labels:
-        app: saml
         service: saml
 
     spec:
-      serviceAccountName: {{ .Values.global.serviceAccountName }}
+      serviceAccountName: default
 
       imagePullSecrets:
-        - name: {{ .Values.global.imagePullSecrets.name }}
+        - name: acr-secret
 
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
         fsGroup: 70070
 
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
       terminationGracePeriodSeconds: 3
-
-      volumes:
-
-        # Docker:
-        # Platform_Configs -> /opt/revolutio/Platform_Configs
-        - name: platformconfig-storage
-          persistentVolumeClaim:
-            claimName: platform-configs-pvc-1
-
-        # Docker:
-        # openbao-approle-revolutio-app -> /openbao-approle
-        - name: openbao-approle
-          persistentVolumeClaim:
-            claimName: openbao-approle-revolutio-app-pvc-1
-
-        # Docker:
-        # shared-certs -> /openbao-certs
-        - name: shared-certs
-          persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
-
-        # Docker tmpfs:
-        # /opt/temp:mode=770,size=1000m,uid=70070,gid=101
-        - name: temp-storage
-          emptyDir:
-            medium: Memory
-            sizeLimit: 1Gi
-
-        # Docker tmpfs:
-        # /opt/revolutio/logs:mode=770,size=1000m,uid=70070,gid=101
-        - name: revolutio-logs
-          emptyDir:
-            medium: Memory
-            sizeLimit: 1Gi
-
-        # Docker tmpfs:
-        # /tmp:mode=770,size=1000m,uid=70070,gid=101
-        - name: tmp-storage
-          emptyDir:
-            medium: Memory
-            sizeLimit: 1Gi
-
-        # Docker tmpfs:
-        # /home/revolutio/.gunicorn:mode=770,size=10m,uid=70070,gid=101
-        - name: gunicorn-storage
-          emptyDir:
-            medium: Memory
-            sizeLimit: 10Mi
 
       containers:
         - name: saml
 
-          image: "{{ .Values.saml.image }}"
-          imagePullPolicy: Always
+          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
 
-          securityContext:
-            runAsUser: 70070
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+          command:
+            - /usr/local/bin/fetch-entrypoint.sh
 
-          resources:
-            requests:
-              cpu: {{ .Values.saml.resources.requests.cpu }}
-              memory: {{ .Values.saml.resources.requests.memory }}
-
-            limits:
-              cpu: "1"
-              memory: "1Gi"
+          args:
+            - bash
+            - -c
+            - >-
+              gunicorn saml.asgi:application
+              --bind 0.0.0.0:9000
+              --workers 1
+              --worker-class uvicorn.workers.UvicornWorker
 
           ports:
-            - name: saml
-              containerPort: 9000
+            - containerPort: 9000
               protocol: TCP
 
           env:
@@ -128,6 +60,30 @@ spec:
             - name: MALLOC_ARENA_MAX
               value: "2"
 
+            - name: TZ
+              value: "UTC"
+
+            - name: POSTGRES_USER
+              value: "platform_app"
+
+            - name: POSTGRES_HOST
+              value: "pgbouncer1-new"
+
+            - name: POSTGRES_DB
+              value: "Platform_DB"
+
+            - name: POSTGRES_PORT
+              value: "5432"
+
+            - name: DATABASE_TYPE
+              value: "PostgreSQL"
+
+            - name: REDIS_HOST
+              value: "redis"
+
+            - name: REDIS_PORT
+              value: "6379"
+
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -137,34 +93,36 @@ spec:
             - name: OPENBAO_ROLE_ID
               value: "revolutio-app"
 
-            - name: OPENBAO_SECRETS
-              value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,DJANGO_SUPERUSER_PASSWORD=django/superuser_password,REDIS_PASSWORD=cache/redis,KEYDB_PASSWORD=cache/keydb,POSTGRES_PASSWORD=postgres-core/platform_app"
-
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,DJANGO_SUPERUSER_PASSWORD=django/superuser_password,REDIS_PASSWORD=cache/redis,KEYDB_PASSWORD=cache/keydb,POSTGRES_PASSWORD=postgres-core/platform_app"
 
             - name: OPENBAO_URL_TEMPLATES
               value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379"
 
-            - name: TZ
-              value: "UTC"
-
           envFrom:
             - configMapRef:
-                name: {{ .Values.saml.configMaps.web }}
+                name: envs-production-web
 
             - configMapRef:
-                name: {{ .Values.saml.configMaps.postgres }}
+                name: envs-production-postgres-core
 
-            - secretRef:
-                name: {{ .Values.saml.secrets.web }}
+          resources:
+            requests:
+              cpu: "1"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
 
-            - secretRef:
-                name: {{ .Values.saml.secrets.postgres }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
 
           volumeMounts:
-
-            - name: platformconfig-storage
+            - name: platform-configs
               mountPath: /opt/revolutio/Platform_Configs
 
             - name: openbao-approle
@@ -175,38 +133,17 @@ spec:
               mountPath: /openbao-certs
               readOnly: true
 
-            - name: temp-storage
+            - name: temp
               mountPath: /opt/temp
 
-            - name: revolutio-logs
+            - name: logs
               mountPath: /opt/revolutio/logs
 
-            - name: tmp-storage
+            - name: tmp
               mountPath: /tmp
 
-            - name: gunicorn-storage
+            - name: gunicorn
               mountPath: /home/revolutio/.gunicorn
-
-          # IMPORTANT:
-          # Docker image ENTRYPOINT is /usr/local/bin/fetch-entrypoint.sh.
-          # This runs OpenBao authentication/secret fetching before Gunicorn.
-          command:
-            - /usr/local/bin/fetch-entrypoint.sh
-
-          # Equivalent to Docker Compose:
-          #
-          # command: bash -c 'gunicorn saml.asgi:application
-          #   --bind 0.0.0.0:9000
-          #   --workers 1
-          #   --worker-class uvicorn.workers.UvicornWorker'
-          args:
-            - bash
-            - -c
-            - >
-              gunicorn saml.asgi:application
-              --bind 0.0.0.0:9000
-              --workers 1
-              --worker-class uvicorn.workers.UvicornWorker
 
           startupProbe:
             exec:
@@ -214,9 +151,9 @@ spec:
                 - /bin/bash
                 - /opt/revolutio/healthcheck_saml.sh
                 - "9000"
-            periodSeconds: 30
+            periodSeconds: 10
             timeoutSeconds: 10
-            failureThreshold: 5
+            failureThreshold: 30
 
           readinessProbe:
             exec:
@@ -227,7 +164,6 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
-            successThreshold: 1
 
           livenessProbe:
             exec:
@@ -238,7 +174,38 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
-            successThreshold: 1
 
           terminationMessagePath: /tmp/web-log
-          terminationMessagePolicy: File
+
+      volumes:
+        - name: platform-configs
+          persistentVolumeClaim:
+            claimName: platform-configs-pvc-1
+
+        - name: openbao-approle
+          persistentVolumeClaim:
+            claimName: openbao-approle-revolutio-app-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
+
+        - name: temp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+
+        - name: logs
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+
+        - name: gunicorn
+          emptyDir:
+            medium: Memory
+            sizeLimit: 10Mi
