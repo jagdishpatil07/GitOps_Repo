@@ -91,7 +91,6 @@ spec:
             sizeLimit: 1000Mi
 
       containers:
-
         - name: worker-computation-0
 
           image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
@@ -114,20 +113,23 @@ spec:
             - name: TZ
               value: "UTC"
 
+            - name: GRPC_DNS_RESOLVER
+              value: "native"
+
             - name: MALLOC_ARENA_MAX
               value: "2"
 
             - name: OPENBLAS_NUM_THREADS
-              value: "1"
+              value: "2"
 
             - name: MKL_NUM_THREADS
-              value: "1"
+              value: "2"
 
             - name: NUMEXPR_NUM_THREADS
-              value: "1"
+              value: "2"
 
             - name: OMP_NUM_THREADS
-              value: "1"
+              value: "2"
 
             - name: XDG_CACHE_HOME
               value: "/opt/temp"
@@ -146,27 +148,24 @@ spec:
 
             - name: OPENBAO_SECRETS
               value: >-
-                DJANGO_SECRET_KEY=django/secret_key,
-                DJANGO_FERNET_SECRET=django/fernet_secret,
+                SECRET_KEY=django/secret_key,
+                FERNET_SECRET=django/fernet_secret,
                 DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,
                 DJANGO_SUPERUSER_PASSWORD=django/superuser_password,
-                POSTGRES_PASSWORD=postgres-core/platform_app,
                 REDIS_PASSWORD=cache/redis,
-                REDIS_PASSWORD_SCHEDULER=cache/redis_scheduler,
                 KEYDB_PASSWORD=cache/keydb,
-                COUCHDB_PASSWORD=couchdb/admin
+                POSTGRES_PASSWORD=postgres-core/platform_app
 
             - name: OPENBAO_URL_TEMPLATES
               value: >-
                 REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
-                REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD_SCHEDULER}@redis-scheduler:6379/0,
+                REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,
                 REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
 
             - name: DATABASE_URL
               value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
 
           envFrom:
-
             - configMapRef:
                 name: envs-production-web
 
@@ -180,15 +179,9 @@ spec:
 
             limits:
               cpu: "2"
-              memory: "2Gi"
+              memory: "3Gi"
 
           volumeMounts:
-
-            - name: static-storage
-              mountPath: /opt/revolutio/static
-
-            - name: media-storage
-              mountPath: /opt/revolutio/Core/media
 
             - name: assets-storage
               mountPath: /opt/revolutio/assets
@@ -201,6 +194,12 @@ spec:
 
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
+
+            - name: static-storage
+              mountPath: /opt/revolutio/static
+
+            - name: media-storage
+              mountPath: /opt/revolutio/Core/media
 
             - name: openbao-approle
               mountPath: /openbao-approle
@@ -224,7 +223,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pgrep -f "custom-worker.py"
+                - pgrep -f custom-worker.py
             periodSeconds: 30
             failureThreshold: 12
 
@@ -233,7 +232,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pgrep -f "custom-worker.py"
+                - pgrep -f custom-worker.py
             periodSeconds: 30
             failureThreshold: 5
 
@@ -242,6 +241,6 @@ spec:
               command:
                 - sh
                 - -c
-                - pgrep -f "custom-worker.py"
+                - pgrep -f custom-worker.py
             periodSeconds: 30
             failureThreshold: 5
