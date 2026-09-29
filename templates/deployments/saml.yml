@@ -47,23 +47,22 @@ spec:
       volumes:
 
         # Docker:
-        # source: Platform_Configs
-        # target: /opt/revolutio/Platform_Configs
+        # Platform_Configs -> /opt/revolutio/Platform_Configs
         - name: platformconfig-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.saml.pvc.platformConfigs }}
+            claimName: platform-configs-pvc-1
 
-        # Docker named volume:
+        # Docker:
         # openbao-approle-revolutio-app -> /openbao-approle
         - name: openbao-approle
           persistentVolumeClaim:
-            claimName: {{ .Values.saml.pvc.openbaoAppRole }}
+            claimName: openbao-approle-revolutio-app-pvc-1
 
-        # Docker named volume:
+        # Docker:
         # shared-certs -> /openbao-certs
         - name: shared-certs
           persistentVolumeClaim:
-            claimName: {{ .Values.saml.pvc.sharedCerts }}
+            claimName: shared-certs-pvc-1
 
         # Docker tmpfs:
         # /opt/temp:mode=770,size=1000m,uid=70070,gid=101
@@ -150,12 +149,6 @@ spec:
             - name: TZ
               value: "UTC"
 
-          # Equivalent of Docker Compose env_file:
-          #
-          # env_file:
-          #   - ${ENV_FILE:-.env}
-          #
-          # The actual .env values must be supplied through this Secret/ConfigMap.
           envFrom:
             - configMapRef:
                 name: {{ .Values.saml.configMaps.web }}
@@ -194,12 +187,6 @@ spec:
             - name: gunicorn-storage
               mountPath: /home/revolutio/.gunicorn
 
-          # EXACT Docker Compose command:
-          #
-          # gunicorn saml.asgi:application
-          #   --bind 0.0.0.0:9000
-          #   --workers 1
-          #   --worker-class uvicorn.workers.UvicornWorker
           command:
             - /bin/bash
             - -c
