@@ -1,13 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: redis
-  namespace: myapp
+  namespace: {{ .Values.namespace }}
   labels:
     service: redis
 
 spec:
-  replicas: 1
+  replicas: {{ .Values.redis.replicaCount }}
 
   selector:
     matchLabels:
@@ -20,6 +21,7 @@ spec:
       maxSurge: 25%
 
   revisionHistoryLimit: 10
+
   progressDeadlineSeconds: 600
 
   template:
@@ -29,7 +31,7 @@ spec:
 
     spec:
       imagePullSecrets:
-        - name: acr-secret
+        - name: {{ .Values.global.imagePullSecrets.name }}
 
       securityContext:
         runAsUser: 70070
@@ -37,21 +39,19 @@ spec:
         fsGroup: 70070
 
       restartPolicy: Always
+
       terminationGracePeriodSeconds: 3
+
       dnsPolicy: ClusterFirst
 
       containers:
         - name: redis
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/redis:latest
+          image: {{ .Values.redis.image }}
           imagePullPolicy: Always
 
           # Keep the image ENTRYPOINT.
-          #
-          # Docker Compose:
-          # command: docker-entrypoint.sh redis-server --maxmemory 512mb --maxmemory-policy noeviction
-          #
-          # Kubernetes passes the same command as arguments.
+          # Docker Compose command is passed as arguments.
           args:
             - docker-entrypoint.sh
             - redis-server
@@ -62,9 +62,10 @@ spec:
 
           env:
 
-            # -------------------------
+            # ==================================================
             # OpenBao
-            # -------------------------
+            # ==================================================
+
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -80,9 +81,10 @@ spec:
             - name: OPENBAO_SECRET_PATH
               value: "cache/redis"
 
-            # -------------------------
+            # ==================================================
             # General
-            # -------------------------
+            # ==================================================
+
             - name: TZ
               value: "UTC"
 
@@ -93,38 +95,42 @@ spec:
 
           resources:
             requests:
-              cpu: "1"
-              memory: "512Mi"
+              cpu: {{ .Values.redis.resources.requests.cpu | quote }}
+              memory: {{ .Values.redis.resources.requests.memory | quote }}
+
             limits:
-              cpu: "2"
-              memory: "1Gi"
+              cpu: {{ .Values.redis.resources.limits.cpu | quote }}
+              memory: {{ .Values.redis.resources.limits.memory | quote }}
 
           volumeMounts:
 
-            # -------------------------
+            # ==================================================
             # OpenBao AppRole
-            # -------------------------
+            # ==================================================
+
             - name: openbao-approle-redis
               mountPath: /openbao-approle
               readOnly: true
 
-            # -------------------------
+            # ==================================================
             # OpenBao TLS certificate
-            # -------------------------
+            # ==================================================
+
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
 
-            # -------------------------
+            # ==================================================
             # Redis data
-            # -------------------------
+            # ==================================================
+
             - name: redis-data
               mountPath: /data
 
-          # -------------------------
-          # Docker healthcheck:
-          # redis-cli ping
-          # -------------------------
+          # ====================================================
+          # Redis health checks
+          # ====================================================
+
           startupProbe:
             exec:
               command:
@@ -154,22 +160,25 @@ spec:
 
       volumes:
 
-        # -------------------------
+        # ======================================================
         # OpenBao AppRole
-        # -------------------------
+        # ======================================================
+
         - name: openbao-approle-redis
           persistentVolumeClaim:
-            claimName: openbao-approle-redis-pvc-1
+            claimName: {{ .Values.redis.pvc.openbaoAppRole }}
 
-        # -------------------------
+        # ======================================================
         # OpenBao TLS
-        # -------------------------
+        # ======================================================
+
         - name: shared-certs
           persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
+            claimName: {{ .Values.redis.pvc.sharedCerts }}
 
-        # -------------------------
+        # ======================================================
         # Redis /data
-        # -------------------------
+        # ======================================================
+
         - name: redis-data
           emptyDir: {}
