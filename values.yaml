@@ -48,7 +48,7 @@ pgbouncer:
   image: revolutio.azurecr.io/revolutio_kubernetes/pgbouncer:latest
   pvc:
     openbaoAppRole: openbao-approle-pgbouncer1-new-pvc-1
-    sharedCerts: shared-certs-pvc-1d
+    sharedCerts: shared-certs-pvc-1
   resources:
     requests:
       cpu: "100m"
