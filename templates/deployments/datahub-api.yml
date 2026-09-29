@@ -44,9 +44,9 @@ spec:
             - -c
             - |
               uvicorn app.main:app \
-              --host 0.0.0.0 \
-              --port 5003 \
-              --workers 1
+                --host 0.0.0.0 \
+                --port 5003 \
+                --workers 1
 
           ports:
             - name: http
@@ -61,27 +61,14 @@ spec:
             - name: TZ
               value: "UTC"
 
-            #
-            # Explicit overrides to prevent K8S
-            # service variable collisions
-            #
+            # Prevent K8S redis service env collision
             - name: REDIS_HOST
               value: "redis"
 
             - name: REDIS_PORT
               value: "6379"
 
-            #
-            # TEMPORARY VALIDATION
-            # Replace with the exact value from Docker.
-            # Remove after OpenBao secret is verified.
-            #
-            - name: FERNET_SECRET
-              value: "IozSZydaPuzwwHunI_SuUP31g9UP0oCjvQn9mrs1vac="
-
-            #
             # OpenBao
-            #
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
