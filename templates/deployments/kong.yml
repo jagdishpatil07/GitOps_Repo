@@ -43,6 +43,11 @@ spec:
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 512Mi
+
       containers:
         - name: kong
 
@@ -52,6 +57,9 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
 
           ports:
             - name: admin
@@ -86,18 +94,14 @@ spec:
             - name: KONG_PLUGINS
               value: "bundled,user-rate-limit,prometheus"
 
-            - name: KONG_LUA_PACKAGE_PATH
-              value: >-
-                /custom-plugins/?.lua;
-                /custom-plugins/?/init.lua;
-                /custom-plugins/kong/?.lua;
-                /custom-plugins/kong/?/init.lua;;
-
             - name: KONG_NGINX_HTTP_LUA_SHARED_DICT
               value: "rate_limit_store 10m"
 
             - name: KONG_NGINX_MAIN_ENV
               value: "REDIS_PASSWORD"
+
+            - name: KONG_LUA_PACKAGE_PATH
+              value: "/custom-plugins/?.lua;/custom-plugins/?/init.lua;/custom-plugins/kong/?.lua;/custom-plugins/kong/?/init.lua;;"
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -137,20 +141,26 @@ spec:
               mountPath: /openbao-certs
               readOnly: true
 
+            - name: tmp
+              mountPath: /tmp
+
           startupProbe:
             tcpSocket:
               port: 8002
             periodSeconds: 10
+            timeoutSeconds: 5
             failureThreshold: 30
 
           readinessProbe:
             tcpSocket:
               port: 8002
-            initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
 
           livenessProbe:
             tcpSocket:
               port: 8002
-            initialDelaySeconds: 30
             periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
