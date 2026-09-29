@@ -1,5 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: keydb
   namespace: {{ .Values.namespace }}
@@ -12,6 +13,13 @@ spec:
   selector:
     matchLabels:
       service: keydb
+
+  strategy:
+    type: RollingUpdate
+
+  revisionHistoryLimit: 10
+
+  progressDeadlineSeconds: 600
 
   template:
     metadata:
@@ -30,26 +38,24 @@ spec:
       volumes:
         - name: keydb-data
           persistentVolumeClaim:
-            claimName: {{ .Values.keydb.pvcName }}
+            claimName: {{ .Values.keydb.pvc.data }}
 
         - name: openbao-approle
           persistentVolumeClaim:
-            claimName: openbao-approle-keydb-pvc-1
+            claimName: {{ .Values.keydb.pvc.openbaoAppRole }}
 
         - name: shared-certs
           persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
+            claimName: {{ .Values.keydb.pvc.sharedCerts }}
 
       containers:
         - name: keydb
 
-          image: "{{ .Values.keydb.image }}"
+          image: {{ .Values.keydb.image }}
           imagePullPolicy: Always
 
-          # Do NOT use command:
-          # Docker Compose command must be passed as arguments
-          # so the image ENTRYPOINT is preserved.
-
+          # Keep image ENTRYPOINT.
+          # Docker Compose command is passed through args.
           args:
             - tini
             - --
@@ -94,12 +100,13 @@ spec:
               readOnly: true
 
           resources:
-            limits:
-              cpu: "2"
-              memory: 1Gi
             requests:
-              cpu: 50m
-              memory: 512Mi
+              cpu: {{ .Values.keydb.resources.requests.cpu | quote }}
+              memory: {{ .Values.keydb.resources.requests.memory | quote }}
+
+            limits:
+              cpu: {{ .Values.keydb.resources.limits.cpu | quote }}
+              memory: {{ .Values.keydb.resources.limits.memory | quote }}
 
           readinessProbe:
             exec:
@@ -126,10 +133,3 @@ spec:
       terminationGracePeriodSeconds: 3
 
       dnsPolicy: ClusterFirst
-
-  strategy:
-    type: RollingUpdate
-
-  revisionHistoryLimit: 10
-
-  progressDeadlineSeconds: 600
