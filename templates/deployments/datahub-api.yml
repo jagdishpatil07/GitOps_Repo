@@ -28,7 +28,6 @@ spec:
         app: datahub-api
 
     spec:
-
       imagePullSecrets:
         - name: acr-secret
 
@@ -45,35 +44,44 @@ spec:
             - -c
             - |
               uvicorn app.main:app \
-                --host 0.0.0.0 \
-                --port 5003 \
-                --workers 1
+              --host 0.0.0.0 \
+              --port 5003 \
+              --workers 1
 
           ports:
             - name: http
               containerPort: 5003
               protocol: TCP
 
-          # Docker .env equivalent
           envFrom:
             - configMapRef:
                 name: envs-production-web
 
           env:
-
             - name: TZ
               value: "UTC"
 
-            # IMPORTANT
-            # Override K8S service env
+            #
+            # Explicit overrides to prevent K8S
+            # service variable collisions
+            #
             - name: REDIS_HOST
               value: "redis"
 
             - name: REDIS_PORT
               value: "6379"
 
-            # OpenBao
+            #
+            # TEMPORARY VALIDATION
+            # Replace with the exact value from Docker.
+            # Remove after OpenBao secret is verified.
+            #
+            - name: FERNET_SECRET
+              value: "IozSZydaPuzwwHunI_SuUP31g9UP0oCjvQn9mrs1vac="
 
+            #
+            # OpenBao
+            #
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -102,7 +110,6 @@ spec:
               memory: "4Gi"
 
           volumeMounts:
-
             - name: openbao-approle-datahub-api
               mountPath: /openbao-approle
               readOnly: true
@@ -152,7 +159,6 @@ spec:
       restartPolicy: Always
 
       volumes:
-
         - name: openbao-approle-datahub-api
           persistentVolumeClaim:
             claimName: openbao-approle-datahub-api-pvc-1
