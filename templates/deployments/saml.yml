@@ -1,11 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: saml
-  namespace: myapp
+  namespace: {{ .Values.namespace }}
 
 spec:
-  replicas: 1
+  replicas: {{ .Values.saml.replicaCount }}
 
   selector:
     matchLabels:
@@ -20,7 +21,7 @@ spec:
       serviceAccountName: default
 
       imagePullSecrets:
-        - name: acr-secret
+        - name: {{ .Values.global.imagePullSecrets.name }}
 
       securityContext:
         runAsUser: 70070
@@ -32,7 +33,8 @@ spec:
       containers:
         - name: saml
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+          image: {{ .Values.saml.image }}
+          imagePullPolicy: Always
 
           command:
             - /usr/local/bin/fetch-entrypoint.sh
@@ -51,6 +53,7 @@ spec:
               protocol: TCP
 
           env:
+
             - name: DJANGO_SETTINGS_MODULE
               value: "saml.settings"
 
@@ -97,31 +100,42 @@ spec:
               value: "/openbao-approle/secret_id"
 
             - name: OPENBAO_SECRETS
-              value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,DJANGO_SUPERUSER_PASSWORD=django/superuser_password,REDIS_PASSWORD=cache/redis,KEYDB_PASSWORD=cache/keydb,POSTGRES_PASSWORD=postgres-core/platform_app"
+              value: >-
+                SECRET_KEY=django/secret_key,
+                FERNET_SECRET=django/fernet_secret,
+                DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,
+                DJANGO_SUPERUSER_PASSWORD=django/superuser_password,
+                REDIS_PASSWORD=cache/redis,
+                KEYDB_PASSWORD=cache/keydb,
+                POSTGRES_PASSWORD=postgres-core/platform_app
 
             - name: OPENBAO_URL_TEMPLATES
-              value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379"
+              value: >-
+                REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
+                REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,
+                REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
 
           envFrom:
             - configMapRef:
-                name: envs-production-web
+                name: {{ .Values.saml.configMaps.web }}
 
             - configMapRef:
-                name: envs-production-postgres-core
+                name: {{ .Values.saml.configMaps.postgres }}
 
           resources:
             requests:
-              cpu: "1"
-              memory: "1Gi"
+              cpu: {{ .Values.saml.resources.requests.cpu | quote }}
+              memory: {{ .Values.saml.resources.requests.memory | quote }}
             limits:
-              cpu: "1"
-              memory: "1Gi"
+              cpu: {{ .Values.saml.resources.limits.cpu | quote }}
+              memory: {{ .Values.saml.resources.limits.memory | quote }}
 
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
 
           volumeMounts:
+
             - name: platform-configs
               mountPath: /opt/revolutio/Platform_Configs
 
@@ -178,9 +192,10 @@ spec:
           terminationMessagePath: /tmp/web-log
 
       volumes:
+
         - name: platform-configs
           persistentVolumeClaim:
-            claimName: platform-configs-pvc-1
+            claimName: {{ .Values.saml.pvc.platformConfigs }}
 
         - name: openbao-approle
           persistentVolumeClaim:
