@@ -3,12 +3,12 @@ kind: Deployment
 
 metadata:
   name: arrowflight
-  namespace: myapp
+  namespace: {{ .Values.namespace }}
   labels:
     service: arrowflight
 
 spec:
-  replicas: 1
+  replicas: {{ .Values.arrowflight.replicaCount }}
 
   selector:
     matchLabels:
@@ -35,11 +35,12 @@ spec:
         fsGroup: 70070
 
       imagePullSecrets:
-        - name: acr-secret
+        - name: {{ .Values.global.imagePullSecrets.name }}
 
       containers:
         - name: arrowflight
-          image: revolutio.azurecr.io/revolutio_kubernetes/arrowflight:latest
+
+          image: {{ .Values.arrowflight.image }}
           imagePullPolicy: Always
 
           securityContext:
@@ -84,12 +85,12 @@ spec:
 
           resources:
             requests:
-              cpu: "1"
-              memory: "4Gi"
+              cpu: {{ .Values.arrowflight.resources.requests.cpu | quote }}
+              memory: {{ .Values.arrowflight.resources.requests.memory | quote }}
 
             limits:
-              cpu: "2"
-              memory: "8Gi"
+              cpu: {{ .Values.arrowflight.resources.limits.cpu | quote }}
+              memory: {{ .Values.arrowflight.resources.limits.memory | quote }}
 
           startupProbe:
             tcpSocket:
@@ -125,8 +126,8 @@ spec:
       volumes:
         - name: openbao-approle-revolutio-app
           persistentVolumeClaim:
-            claimName: openbao-approle-revolutio-app-pvc-1
+            claimName: {{ .Values.arrowflight.pvc.openbaoAppRole }}
 
         - name: shared-certs
           persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
+            claimName: {{ .Values.arrowflight.pvc.sharedCerts }}
