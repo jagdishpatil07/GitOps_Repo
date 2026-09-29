@@ -6,35 +6,72 @@ namespace: myapp
 global:
   imagePullSecrets:
     name: acr-secret  # 🔥 common for all deployments
-
-
 # ============================================================
 # 🔹 ARROWFLIGHT
 # ============================================================
 arrowflight:
   replicaCount: 1
   image: revolutio.azurecr.io/revolutio/arrowflight:latest
+  pvc:
+    openbaoAppRole: openbao-approle-revolutio-app-pvc-1
+    sharedCerts: shared-certs-pvc-1
+  resources:
+    requests:
+      cpu: "1"
+      memory: "4Gi"
+    limits:
+      cpu: "2"
+      memory: "8Gi"
+# ============================================================
+# KEYDB
 # ============================================================
 keydb:
   replicaCount: 1
   image: revolutio.azurecr.io/revolutio_kubernetes/keydb:latest
-  pvcName: keydb-pvc-1
-  secretName: secrets-production-redis
+  pvc:
+    data: keydb-pvc-1
+    openbaoAppRole: openbao-approle-keydb-pvc-1
+    sharedCerts: shared-certs-pvc-1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+# ============================================================
+# ============================================================
+# PGBOUNCER
 # ============================================================
 pgbouncer:
   replicaCount: 1
-
-  image: revolutio.azurecr.io/revolutio_kubernetes/pgbouncer:1.15.0
-
-  configMap: envs-production-postgres-new
-  secret: secrets-production-postgres-new
-#===========================================================
+  image: revolutio.azurecr.io/revolutio_kubernetes/pgbouncer:latest
+  pvc:
+    openbaoAppRole: openbao-approle-pgbouncer1-new-pvc-1
+    sharedCerts: shared-certs-pvc-1d
+  resources:
+    requests:
+      cpu: "100m"
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+# ============================================================
+# REDIS
+# ============================================================
 redis:
   replicaCount: 1
-
   image: revolutio.azurecr.io/revolutio_kubernetes/redis:latest
-
-  secretName: secrets-production-redis
+  pvc:
+    openbaoAppRole: openbao-approle-redis-pvc-1
+    sharedCerts: shared-certs-pvc-1
+  resources:
+    requests:
+      cpu: "1"
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
 #===========================================================
 redisScheduler:
   replicaCount: 1
