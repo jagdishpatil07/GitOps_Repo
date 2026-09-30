@@ -1,3 +1,4 @@
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,8 +17,7 @@ spec:
     matchLabels:
       app: openbao
 
-  # OpenBao should never have two instances using the same single-node
-  # persistent storage during an update.
+  # Single OpenBao instance using persistent single-node Raft storage.
   strategy:
     type: Recreate
 
@@ -55,10 +55,8 @@ spec:
               protocol: TCP
 
           # Docker equivalent:
-          #
           # cap_add:
           #   - IPC_LOCK
-          #
           securityContext:
             capabilities:
               add:
@@ -67,11 +65,29 @@ spec:
           volumeMounts:
 
             # ============================================================
-            # OpenBao persistent storage
+            # OpenBao file storage
+            #
+            # Used by the bootstrap/migration process.
             # ============================================================
 
             - name: openbao-data
               mountPath: /openbao/data
+
+            # ============================================================
+            # OpenBao Raft storage
+            #
+            # IMPORTANT:
+            # config.hcl uses:
+            #
+            # storage "raft" {
+            #   path = "/openbao/raft"
+            # }
+            #
+            # Therefore this PVC MUST be mounted exactly here.
+            # ============================================================
+
+            - name: openbao-raft
+              mountPath: /openbao/raft
 
             # ============================================================
             # OpenBao bootstrap/init data
@@ -97,8 +113,6 @@ spec:
 
             # ============================================================
             # AppRole secret volumes
-            #
-            # Keep paths EXACTLY aligned with Docker Compose.
             # ============================================================
 
             - name: approle-postgres-core
@@ -142,16 +156,12 @@ spec:
 
             - name: approle-rabbitmq
               mountPath: /openbao/approle-secrets/rabbitmq
-    
+
             - name: approle-platform-migrator
               mountPath: /openbao/approle-secrets/platform-migrator
 
           # ============================================================
           # Resources
-          #
-          # Matches Docker:
-          #   CPUs: 1
-          #   memory: 512M
           # ============================================================
 
           resources:
@@ -166,11 +176,7 @@ spec:
           # ============================================================
           # STARTUP PROBE
           #
-          # Only checks that the OpenBao server process is listening.
-          #
-          # We intentionally DO NOT require .bootstrap-complete here.
-          # Otherwise Kubernetes can repeatedly kill OpenBao while
-          # bootstrap is still being performed.
+          # Only verifies that OpenBao is listening.
           # ============================================================
 
           startupProbe:
@@ -186,14 +192,8 @@ spec:
           # ============================================================
           # READINESS PROBE
           #
-          # This reproduces the important part of Docker healthcheck:
-          #
-          # test -f /openbao/init/.bootstrap-complete
-          # AND
-          # bao status -> Sealed false
-          #
-          # Pod is NOT Ready until bootstrap has completed and
-          # OpenBao is unsealed.
+          # OpenBao becomes Ready only after bootstrap is complete
+          # and the server is unsealed.
           # ============================================================
 
           readinessProbe:
@@ -218,12 +218,8 @@ spec:
           # ============================================================
           # LIVENESS PROBE
           #
-          # Do NOT make liveness depend on bootstrap/unseal state.
-          #
-          # If OpenBao becomes sealed, restarting it continuously is not
-          # useful and could create a restart loop.
-          #
-          # Liveness only verifies that the server process is alive.
+          # Only verifies that the OpenBao server is listening.
+          # It does not depend on bootstrap/unseal state.
           # ============================================================
 
           livenessProbe:
@@ -243,20 +239,42 @@ spec:
       volumes:
 
         # ============================================================
-        # Core OpenBao persistence
+        # OpenBao file storage
         # ============================================================
 
         - name: openbao-data
           persistentVolumeClaim:
             claimName: openbao-data-pvc-1
-            
+
+        # ============================================================
+        # OpenBao integrated Raft storage
+        #
+        # This is the critical new persistent volume.
+        # ============================================================
+
+        - name: openbao-raft
+          persistentVolumeClaim:
+            claimName: openbao-raft-pvc-1
+
+        # ============================================================
+        # Bootstrap/init persistence
+        # ============================================================
+
         - name: openbao-init
           persistentVolumeClaim:
             claimName: openbao-init-pvc-1
 
+        # ============================================================
+        # TLS
+        # ============================================================
+
         - name: openbao-tls
           persistentVolumeClaim:
             claimName: openbao-tls-pvc-1
+
+        # ============================================================
+        # Shared certificates
+        # ============================================================
 
         - name: shared-certs
           persistentVolumeClaim:
@@ -301,7 +319,7 @@ spec:
         - name: approle-datahub-api
           persistentVolumeClaim:
             claimName: openbao-approle-datahub-api-pvc-1
-    
+
         - name: approle-postgres-backup
           persistentVolumeClaim:
             claimName: openbao-approle-postgres-backup-pvc-1
@@ -325,4 +343,4 @@ spec:
         - name: approle-platform-migrator
           persistentVolumeClaim:
             claimName: openbao-approle-platform-migrator-pvc-1
-
+```
