@@ -78,3 +78,4 @@ data:
   KONG_ANONYMOUS_REPORTS: "off"
   KONG_REDIS_PASSWORD: redissecretpassword
   KONG_NGINX_HTTP_LUA_SHARED_DICT: "rate_limit_store 10m"
+  COMPOSE_PROFILES: "migrator-docker"
