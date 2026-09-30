@@ -73,10 +73,6 @@ spec:
             - name: openbao-data
               mountPath: /openbao/data
 
-            # Docker Compose also has this volume.
-            - name: openbao-raft
-              mountPath: /openbao/raft
-
             # ============================================================
             # OpenBao bootstrap/init data
             # ============================================================
@@ -277,11 +273,7 @@ spec:
         - name: openbao-data
           persistentVolumeClaim:
             claimName: openbao-data-pvc-1
-
-        - name: openbao-raft
-          persistentVolumeClaim:
-            claimName: openbao-raft-pvc-1
-
+            
         - name: openbao-init
           persistentVolumeClaim:
             claimName: openbao-init-pvc-1
