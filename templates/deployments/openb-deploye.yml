@@ -6,6 +6,7 @@ metadata:
   labels:
     app: openbao
     component: secrets-management
+
 spec:
   replicas: 1
 
@@ -15,6 +16,8 @@ spec:
     matchLabels:
       app: openbao
 
+  # OpenBao should never have two instances using the same single-node
+  # persistent storage during an update.
   strategy:
     type: Recreate
 
@@ -28,6 +31,9 @@ spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 60
       dnsPolicy: ClusterFirst
+
+      imagePullSecrets:
+        - name: acr-secret
 
       containers:
         - name: openbao
@@ -48,37 +54,56 @@ spec:
               containerPort: 8201
               protocol: TCP
 
+          # Docker equivalent:
+          #
+          # cap_add:
+          #   - IPC_LOCK
+          #
+          securityContext:
+            capabilities:
+              add:
+                - IPC_LOCK
+
           volumeMounts:
 
-            # =========================
-            # OpenBao data
-            # =========================
+            # ============================================================
+            # OpenBao persistent storage
+            # ============================================================
+
             - name: openbao-data
               mountPath: /openbao/data
 
-            # =========================
-            # OpenBao initialization
-            # =========================
+            # Docker Compose also has this volume.
+            - name: openbao-raft
+              mountPath: /openbao/raft
+
+            # ============================================================
+            # OpenBao bootstrap/init data
+            # ============================================================
+
             - name: openbao-init
               mountPath: /openbao/init
 
-            # =========================
-            # OpenBao TLS
-            # =========================
+            # ============================================================
+            # TLS
+            # ============================================================
+
             - name: openbao-tls
               mountPath: /openbao/tls
               readOnly: true
 
-            # =========================
+            # ============================================================
             # Shared certificates
-            # =========================
+            # ============================================================
+
             - name: shared-certs
               mountPath: /shared-certs
 
-            # =========================
-            # AppRole secrets
-            # Keep these paths EXACTLY
-            # =========================
+            # ============================================================
+            # AppRole secret volumes
+            #
+            # Keep paths EXACTLY aligned with Docker Compose.
+            # ============================================================
 
             - name: approle-postgres-core
               mountPath: /openbao/approle-secrets/postgres-core
@@ -107,6 +132,9 @@ spec:
             - name: approle-datahub-api
               mountPath: /openbao/approle-secrets/datahub-api
 
+            - name: approle-rls-api
+              mountPath: /openbao/approle-secrets/rls-api
+
             - name: approle-postgres-backup
               mountPath: /openbao/approle-secrets/postgres-backup
 
@@ -122,8 +150,37 @@ spec:
             - name: approle-rabbitmq
               mountPath: /openbao/approle-secrets/rabbitmq
 
+            - name: approle-oracle-app
+              mountPath: /openbao/approle-secrets/oracle-app
+
+            - name: approle-web-builder-api
+              mountPath: /openbao/approle-secrets/web-builder-api
+
+            - name: approle-clickhouse
+              mountPath: /openbao/approle-secrets/clickhouse
+
+            - name: approle-otel-collector
+              mountPath: /openbao/approle-secrets/otel-collector
+
+            - name: approle-pgbouncer-exporter
+              mountPath: /openbao/approle-secrets/pgbouncer-exporter
+
+            - name: approle-observability-api
+              mountPath: /openbao/approle-secrets/observability-api
+
             - name: approle-platform-migrator
               mountPath: /openbao/approle-secrets/platform-migrator
+
+            - name: approle-benchmark-runner
+              mountPath: /openbao/approle-secrets/benchmark-runner
+
+          # ============================================================
+          # Resources
+          #
+          # Matches Docker:
+          #   CPUs: 1
+          #   memory: 512M
+          # ============================================================
 
           resources:
             requests:
@@ -134,46 +191,96 @@ spec:
               cpu: "1"
               memory: "512Mi"
 
-          readinessProbe:
+          # ============================================================
+          # STARTUP PROBE
+          #
+          # Only checks that the OpenBao server process is listening.
+          #
+          # We intentionally DO NOT require .bootstrap-complete here.
+          # Otherwise Kubernetes can repeatedly kill OpenBao while
+          # bootstrap is still being performed.
+          # ============================================================
+
+          startupProbe:
             tcpSocket:
-              port: 8200
-            initialDelaySeconds: 10
-            periodSeconds: 10
+              port: api
+
+            initialDelaySeconds: 5
+            periodSeconds: 5
             timeoutSeconds: 5
-            failureThreshold: 6
+            failureThreshold: 60
             successThreshold: 1
+
+          # ============================================================
+          # READINESS PROBE
+          #
+          # This reproduces the important part of Docker healthcheck:
+          #
+          # test -f /openbao/init/.bootstrap-complete
+          # AND
+          # bao status -> Sealed false
+          #
+          # Pod is NOT Ready until bootstrap has completed and
+          # OpenBao is unsealed.
+          # ============================================================
+
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  test -f /openbao/init/.bootstrap-complete
+
+                  export BAO_ADDR="https://127.0.0.1:8200"
+                  export BAO_CACERT="/openbao/tls/tls.crt"
+
+                  bao status 2>/dev/null | grep -q '^Sealed[[:space:]]*false'
+
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 30
+            successThreshold: 1
+
+          # ============================================================
+          # LIVENESS PROBE
+          #
+          # Do NOT make liveness depend on bootstrap/unseal state.
+          #
+          # If OpenBao becomes sealed, restarting it continuously is not
+          # useful and could create a restart loop.
+          #
+          # Liveness only verifies that the server process is alive.
+          # ============================================================
 
           livenessProbe:
             tcpSocket:
-              port: 8200
+              port: api
+
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 6
             successThreshold: 1
 
-          startupProbe:
-            tcpSocket:
-              port: 8200
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 5
-            failureThreshold: 30
-            successThreshold: 1
-
-      # ============================================================
+      # ================================================================
       # VOLUMES
-      # ============================================================
+      # ================================================================
 
       volumes:
 
-        # =========================
-        # OpenBao core storage
-        # =========================
+        # ============================================================
+        # Core OpenBao persistence
+        # ============================================================
 
         - name: openbao-data
           persistentVolumeClaim:
             claimName: openbao-data-pvc-1
+
+        - name: openbao-raft
+          persistentVolumeClaim:
+            claimName: openbao-raft-pvc-1
 
         - name: openbao-init
           persistentVolumeClaim:
@@ -187,9 +294,9 @@ spec:
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
-        # =========================
-        # AppRole PVCs
-        # =========================
+        # ============================================================
+        # AppRole persistence
+        # ============================================================
 
         - name: approle-postgres-core
           persistentVolumeClaim:
@@ -227,6 +334,10 @@ spec:
           persistentVolumeClaim:
             claimName: openbao-approle-datahub-api-pvc-1
 
+        - name: approle-rls-api
+          persistentVolumeClaim:
+            claimName: openbao-approle-rls-api-pvc-1
+
         - name: approle-postgres-backup
           persistentVolumeClaim:
             claimName: openbao-approle-postgres-backup-pvc-1
@@ -247,6 +358,34 @@ spec:
           persistentVolumeClaim:
             claimName: openbao-approle-rabbitmq-pvc-1
 
+        - name: approle-oracle-app
+          persistentVolumeClaim:
+            claimName: openbao-approle-oracle-app-pvc-1
+
+        - name: approle-web-builder-api
+          persistentVolumeClaim:
+            claimName: openbao-approle-web-builder-api-pvc-1
+
+        - name: approle-clickhouse
+          persistentVolumeClaim:
+            claimName: openbao-approle-clickhouse-pvc-1
+
+        - name: approle-otel-collector
+          persistentVolumeClaim:
+            claimName: openbao-approle-otel-collector-pvc-1
+
+        - name: approle-pgbouncer-exporter
+          persistentVolumeClaim:
+            claimName: openbao-approle-pgbouncer-exporter-pvc-1
+
+        - name: approle-observability-api
+          persistentVolumeClaim:
+            claimName: openbao-approle-observability-api-pvc-1
+
         - name: approle-platform-migrator
           persistentVolumeClaim:
             claimName: openbao-approle-platform-migrator-pvc-1
+
+        - name: approle-benchmark-runner
+          persistentVolumeClaim:
+            claimName: openbao-approle-benchmark-runner-pvc-1
