@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: openbao-raft-pv-1
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem
+  nfs:
+    server: 127.0.0.1
+    path: /data/nfs/openbao-raft
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openbao-raft-pvc-1
+  namespace: myapp
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi
+  volumeName: openbao-raft-pv-1
+  volumeMode: Filesystem
