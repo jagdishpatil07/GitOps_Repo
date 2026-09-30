@@ -128,9 +128,6 @@ spec:
             - name: approle-datahub-api
               mountPath: /openbao/approle-secrets/datahub-api
 
-            - name: approle-rls-api
-              mountPath: /openbao/approle-secrets/rls-api
-
             - name: approle-postgres-backup
               mountPath: /openbao/approle-secrets/postgres-backup
 
@@ -325,11 +322,7 @@ spec:
         - name: approle-datahub-api
           persistentVolumeClaim:
             claimName: openbao-approle-datahub-api-pvc-1
-
-        - name: approle-rls-api
-          persistentVolumeClaim:
-            claimName: openbao-approle-rls-api-pvc-1
-
+    
         - name: approle-postgres-backup
           persistentVolumeClaim:
             claimName: openbao-approle-postgres-backup-pvc-1
