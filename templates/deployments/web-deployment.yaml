@@ -8,6 +8,7 @@ metadata:
     service: web
 
 spec:
+  # Docker WEB_REPLICAS defaults to 1
   replicas: {{ .Values.web.replicaCount }}
 
   selector:
@@ -21,7 +22,6 @@ spec:
       maxSurge: 25%
 
   revisionHistoryLimit: 10
-
   progressDeadlineSeconds: 600
 
   template:
@@ -31,112 +31,62 @@ spec:
 
     spec:
 
-      # ============================================================
-      # Docker equivalent:
-      # imagePullSecrets / private registry
-      # ============================================================
-
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
-      # Docker:
-      # stop_grace_period: 15s
-      # ============================================================
-
+      # Docker stop_grace_period = 15s
       terminationGracePeriodSeconds: 15
-
-      # ============================================================
-      # Docker container runs as UID 70070
-      # ============================================================
 
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
         fsGroup: 70070
 
-      # ============================================================
-      # Volumes
-      # ============================================================
-
       volumes:
 
-        # ----------------------------------------------------------
-        # Docker:
-        # static
-        # ----------------------------------------------------------
+        # ============================================================
+        # Application persistent storage
+        # ============================================================
 
         - name: static-storage
           persistentVolumeClaim:
             claimName: {{ .Values.web.pvc.static }}
 
-        # ----------------------------------------------------------
-        # Docker:
-        # media
-        # ----------------------------------------------------------
-
         - name: media-storage
           persistentVolumeClaim:
             claimName: {{ .Values.web.pvc.media }}
-
-        # ----------------------------------------------------------
-        # Docker:
-        # assets
-        # ----------------------------------------------------------
 
         - name: assets-storage
           persistentVolumeClaim:
             claimName: {{ .Values.web.pvc.assets }}
 
-        # ----------------------------------------------------------
-        # Docker:
-        # Platform_Configs
-        # ----------------------------------------------------------
-
         - name: platformconfig-storage
           persistentVolumeClaim:
             claimName: {{ .Values.web.pvc.platformConfigs }}
-
-        # ----------------------------------------------------------
-        # Docker:
-        # user_defined_template
-        # ----------------------------------------------------------
 
         - name: templates-storage
           persistentVolumeClaim:
             claimName: {{ .Values.web.pvc.templates }}
 
-        # ----------------------------------------------------------
-        # Docker:
-        # computation_storage
-        # ----------------------------------------------------------
-
         - name: computation-storage
           persistentVolumeClaim:
             claimName: {{ .Values.web.pvc.computation }}
 
-        # ----------------------------------------------------------
-        # OpenBao AppRole
-        # Docker:
-        # openbao-approle-revolutio-app
-        # ----------------------------------------------------------
+        # ============================================================
+        # OpenBao
+        # ============================================================
 
         - name: openbao-approle
           persistentVolumeClaim:
             claimName: openbao-approle-revolutio-app-pvc-1
 
-        # ----------------------------------------------------------
-        # OpenBao TLS
-        # Docker:
-        # shared-certs
-        # ----------------------------------------------------------
-
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
-        # ==========================================================
+        # ============================================================
         # Docker tmpfs equivalents
-        # ==========================================================
+        # ============================================================
 
         - name: opt-temp
           emptyDir:
@@ -158,10 +108,6 @@ spec:
             medium: Memory
             sizeLimit: 10Mi
 
-      # ============================================================
-      # WEB CONTAINER
-      # ============================================================
-
       containers:
 
         - name: web
@@ -170,19 +116,25 @@ spec:
 
           imagePullPolicy: Always
 
-          # ========================================================
-          # Docker:
+          # IMPORTANT:
           #
-          # command: bash -c
-          # 'gunicorn config.asgi:application
-          #  --bind 0.0.0.0:5000
-          #  --workers ${WEB_WORKERS:-1}
-          #  --worker-class uvicorn.workers.UvicornWorker
-          #  --timeout 120
-          #  --graceful-timeout 10'
+          # DO NOT specify "command:" here.
           #
-          # ========================================================
-
+          # Docker image ENTRYPOINT is:
+          # /usr/local/bin/fetch-entrypoint.sh
+          #
+          # Leaving command unset means Kubernetes keeps that ENTRYPOINT.
+          #
+          # Docker Compose command becomes Kubernetes args.
+          #
+          # Therefore the real startup path is:
+          #
+          # /usr/local/bin/fetch-entrypoint.sh
+          #       -> OpenBao
+          #       -> /Installation_ref/scripts/entrypoint
+          #       -> bootstrap/migrations
+          #       -> gunicorn
+          #
           args:
             - bash
             - -c
@@ -194,24 +146,16 @@ spec:
               --timeout 120
               --graceful-timeout 10
 
-          # ========================================================
-          # Port
-          # ========================================================
-
           ports:
             - name: http
               containerPort: 5000
               protocol: TCP
 
-          # ========================================================
-          # ENVIRONMENT
-          # ========================================================
+          # ============================================================
+          # Explicit Docker Compose environment
+          # ============================================================
 
           env:
-
-            # ------------------------------------------------------
-            # Docker environment
-            # ------------------------------------------------------
 
             - name: TZ
               value: "UTC"
@@ -231,16 +175,12 @@ spec:
             - name: GRPC_DNS_RESOLVER
               value: "native"
 
-            # ------------------------------------------------------
-            # Docker .env equivalent
+            # ==========================================================
+            # Redis base configuration
             #
-            # Docker .env contains:
-            #
-            # REDIS_HOST = redis
-            # REDIS_PORT = 6379
-            #
-            # DO NOT put REDIS_URL / passwords here.
-            # ------------------------------------------------------
+            # Password and URLs are NOT hardcoded.
+            # They are injected/generated by OpenBao.
+            # ==========================================================
 
             - name: REDIS_HOST
               value: "redis"
@@ -248,9 +188,9 @@ spec:
             - name: REDIS_PORT
               value: "6379"
 
-            # ------------------------------------------------------
+            # ==========================================================
             # OpenBao
-            # ------------------------------------------------------
+            # ==========================================================
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -264,9 +204,9 @@ spec:
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao-approle/secret_id"
 
-            # ------------------------------------------------------
-            # Secrets pulled from OpenBao
-            # ------------------------------------------------------
+            # ==========================================================
+            # EXACT Docker OpenBao mappings
+            # ==========================================================
 
             - name: OPENBAO_SECRETS
               value: >-
@@ -278,22 +218,9 @@ spec:
                 KEYDB_PASSWORD=cache/keydb,
                 POSTGRES_PASSWORD=postgres-core/platform_app
 
-            # ------------------------------------------------------
-            # IMPORTANT:
-            #
-            # These are generated from OpenBao secrets.
-            #
-            # Docker exact configuration:
-            #
-            # REDIS_URL:
-            # redis://:$${REDIS_PASSWORD}@redis:6379/0
-            #
-            # REDIS_URL_SCHEDULER:
-            # redis://:$${REDIS_PASSWORD}@redis:6379/1
-            #
-            # REDIS_CACHE_LOCATION:
-            # redis://:$${KEYDB_PASSWORD}@keydb:6379
-            # ------------------------------------------------------
+            # ==========================================================
+            # EXACT Docker generated URL templates
+            # ==========================================================
 
             - name: OPENBAO_URL_TEMPLATES
               value: >-
@@ -301,19 +228,9 @@ spec:
                 REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,
                 REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
 
-          # ========================================================
-          # ConfigMaps
-          #
-          # envs-production-web should contain the non-secret
-          # Docker .env-style values.
-          #
-          # It should NOT override:
-          # REDIS_URL
-          # REDIS_URL_SCHEDULER
-          # REDIS_CACHE_LOCATION
-          # REDIS_PASSWORD
-          # KEYDB_PASSWORD
-          # ========================================================
+          # ============================================================
+          # Non-secret Docker .env values
+          # ============================================================
 
           envFrom:
 
@@ -323,15 +240,23 @@ spec:
             - configMapRef:
                 name: {{ .Values.web.configMaps.postgres }}
 
-          # ========================================================
+          # ============================================================
           # Resources
           #
           # Docker:
-          # cpus: ${WEB_CPUS:-1}
-          # memory: ${WEB_MEMORY:-3G}
+          # WEB_CPUS=3
+          # WEB_MEMORY=9G
           #
-          # Values are controlled through Helm.
-          # ========================================================
+          # Keep these Helm-controlled, but the values MUST be:
+          #
+          # requests:
+          #   cpu: 3
+          #   memory: 9Gi
+          #
+          # limits:
+          #   cpu: 3
+          #   memory: 9Gi
+          # ============================================================
 
           resources:
 
@@ -343,16 +268,17 @@ spec:
               cpu: {{ .Values.web.resources.limits.cpu | quote }}
               memory: {{ .Values.web.resources.limits.memory | quote }}
 
-          # ========================================================
+          # ============================================================
+          # Startup probe
+          #
           # Docker:
+          # interval=30s
+          # timeout=30s
+          # retries=5
+          # start_period=360s
           #
-          # healthcheck:
-          #   interval: 30s
-          #   retries: 5
-          #   start_period: 360s
-          #   timeout: 30s
-          #
-          # ========================================================
+          # 12 x 30s = 360s
+          # ============================================================
 
           startupProbe:
             exec:
@@ -364,6 +290,10 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 30
             failureThreshold: 12
+
+          # ============================================================
+          # Readiness
+          # ============================================================
 
           readinessProbe:
             exec:
@@ -377,6 +307,10 @@ spec:
             failureThreshold: 5
             successThreshold: 1
 
+          # ============================================================
+          # Liveness
+          # ============================================================
+
           livenessProbe:
             exec:
               command:
@@ -389,124 +323,72 @@ spec:
             failureThreshold: 5
             successThreshold: 1
 
-          # ========================================================
-          # Docker:
-          #
-          # read_only: true
-          #
-          # ========================================================
+          # ============================================================
+          # Docker read_only=true
+          # ============================================================
 
           securityContext:
             runAsUser: 70070
             runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+
             capabilities:
               drop:
                 - ALL
 
-          # ========================================================
+          # ============================================================
           # Volume mounts
-          # ========================================================
+          # ============================================================
 
           volumeMounts:
-
-            # ------------------------------------------------------
-            # Docker:
-            # static -> /opt/revolutio/static
-            # ------------------------------------------------------
 
             - name: static-storage
               mountPath: /opt/revolutio/static
 
-            # ------------------------------------------------------
-            # Docker:
-            # media -> /opt/revolutio/Core/media
-            # ------------------------------------------------------
-
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
-
-            # ------------------------------------------------------
-            # Docker:
-            # assets -> /opt/revolutio/assets
-            # ------------------------------------------------------
 
             - name: assets-storage
               mountPath: /opt/revolutio/assets
 
-            # ------------------------------------------------------
-            # Docker:
-            # Platform_Configs
-            # ------------------------------------------------------
-
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
-
-            # ------------------------------------------------------
-            # Docker:
-            # user_defined_template
-            # ------------------------------------------------------
 
             - name: templates-storage
               mountPath: /opt/revolutio/Core/templates/user_defined_template
 
-            # ------------------------------------------------------
-            # Docker:
-            # computation_storage
-            # ------------------------------------------------------
-
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
 
-            # ------------------------------------------------------
-            # OpenBao AppRole
-            # ------------------------------------------------------
+            # ==========================================================
+            # OpenBao AppRole Secret ID
+            # ==========================================================
 
             - name: openbao-approle
               mountPath: /openbao-approle
               readOnly: true
 
-            # ------------------------------------------------------
-            # OpenBao TLS
-            # ------------------------------------------------------
+            # ==========================================================
+            # OpenBao CA certificate
+            # ==========================================================
 
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
 
-            # ------------------------------------------------------
-            # Docker tmpfs:
-            #
-            # /opt/temp
-            # ------------------------------------------------------
+            # ==========================================================
+            # Docker tmpfs equivalents
+            # ==========================================================
 
             - name: opt-temp
               mountPath: /opt/temp
 
-            # ------------------------------------------------------
-            # Docker tmpfs:
-            #
-            # /opt/revolutio/logs
-            # ------------------------------------------------------
-
             - name: revolutio-logs
               mountPath: /opt/revolutio/logs
 
-            # ------------------------------------------------------
-            # Docker tmpfs:
-            #
-            # /tmp
-            # ------------------------------------------------------
-
             - name: tmp
               mountPath: /tmp
-
-            # ------------------------------------------------------
-            # Docker tmpfs:
-            #
-            # /home/revolutio/.gunicorn
-            # ------------------------------------------------------
 
             - name: gunicorn-runtime
               mountPath: /home/revolutio/.gunicorn
