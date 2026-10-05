@@ -105,6 +105,9 @@ spec:
             - name: openbao-approle-shared
               mountPath: /openbao/approle-secrets/
 
+            - name: approle-postgres-core
+              mountPath: /openbao/approle-secrets/postgres-core
+
           # ============================================================
           # Resources
           # ============================================================
@@ -232,5 +235,8 @@ spec:
         - name: openbao-approle-shared
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
+            
+        - name: approle-postgres-core
+          emptyDir: {}
 
  
