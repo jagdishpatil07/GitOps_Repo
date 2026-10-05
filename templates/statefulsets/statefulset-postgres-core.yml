@@ -100,8 +100,8 @@ spec:
             - name: postgres-socket
               mountPath: /var/run/postgresql
 
-            - name: openbao-approle
-              mountPath: /openbao-approle
+            - name: openbao-approle-shared
+              mountPath: /openbao/approle-secrets/
               readOnly: true
 
             - name: shared-certs
@@ -153,7 +153,7 @@ spec:
           persistentVolumeClaim:
             claimName: postgres-core-socket-pvc
 
-        - name: openbao-approle
+        - name: openbao-approle-shared
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
 
