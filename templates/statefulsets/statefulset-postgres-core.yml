@@ -56,7 +56,7 @@ spec:
               value: "postgres-core"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/secret_id"
+              value: "/openbao/approle-secrets/postgres-core/secret_id"
 
             - name: OPENBAO_ENV_FILE
               value: "/var/run/openbao-env.sh"
@@ -101,8 +101,7 @@ spec:
               mountPath: /var/run/postgresql
 
             - name: openbao-approle-shared
-              mountPath: /openbao-approle
-              subPath: postgres-core
+              mountPath: /openbao/approle-secrets
               readOnly: true
 
             - name: shared-certs
