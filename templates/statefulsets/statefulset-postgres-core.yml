@@ -56,7 +56,7 @@ spec:
               value: "postgres-core"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/secret_id"
+              value: "/openbao/approle-secrets/postgres-core/secret_id"
 
             - name: OPENBAO_ENV_FILE
               value: "/var/run/openbao-env.sh"
