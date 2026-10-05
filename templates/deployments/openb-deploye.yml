@@ -101,7 +101,7 @@ spec:
 
             - name: openbao-tls
               mountPath: /openbao/tls
-              readOnly: true
+              #readOnly: true
 
             # ============================================================
             # Shared certificates
