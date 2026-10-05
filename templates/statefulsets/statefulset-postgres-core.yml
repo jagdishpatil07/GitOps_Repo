@@ -3,6 +3,8 @@ kind: StatefulSet
 metadata:
   name: postgres-core
   namespace: myapp
+  labels:
+    app: postgres-core
 
 spec:
   serviceName: postgres-core
@@ -18,6 +20,8 @@ spec:
         app: postgres-core
 
     spec:
+      restartPolicy: Always
+
       imagePullSecrets:
         - name: acr-secret
 
@@ -26,14 +30,21 @@ spec:
 
       containers:
         - name: postgres-core
+
           image: revolutio.azurecr.io/revolutio_kubernetes/postgres:18-bookworm
           imagePullPolicy: Always
 
           ports:
             - name: postgres
               containerPort: 5432
+              protocol: TCP
 
           env:
+
+            # ----------------------------------------------------------
+            # PostgreSQL
+            # ----------------------------------------------------------
+
             - name: POSTGRES_DB
               value: "postgres"
 
@@ -46,6 +57,10 @@ spec:
             - name: PG_EXTENSIONS
               value: "pg_stat_statements"
 
+            # ----------------------------------------------------------
+            # OpenBao
+            # ----------------------------------------------------------
+
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -56,7 +71,7 @@ spec:
               value: "postgres-core"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/postgres-core/secret_id"
+              value: "/openbao-approle/postgres-core/secret_id"
 
             - name: OPENBAO_ENV_FILE
               value: "/var/run/openbao-env.sh"
@@ -64,18 +79,35 @@ spec:
             - name: OPENBAO_WRAPPED_ENTRYPOINT
               value: "/usr/local/bin/ensure-extensions-entrypoint.sh"
 
+            # ----------------------------------------------------------
+            # Secrets fetched from OpenBao
+            # ----------------------------------------------------------
+
             - name: OPENBAO_SECRETS
-              value: "POSTGRES_PASSWORD=postgres-core/admin,PLATFORM_APP_PASSWORD=postgres-core/platform_app,APP_DB_APP_PASSWORD=postgres-core/app_db_app,WORKSPACE_APP_PASSWORD=postgres-core/workspace_app,HEALTH_CHECK_PASSWORD=postgres-core/health_check,PGBR_PASSWORD=postgres-core/pgbackrest,PGBACKREST_REPO1_CIPHER_PASS=postgres-core/pgbackrest_cipher"
+              value: >-
+                POSTGRES_PASSWORD=postgres-core/admin,
+                PLATFORM_APP_PASSWORD=postgres-core/platform_app,
+                APP_DB_APP_PASSWORD=postgres-core/app_db_app,
+                WORKSPACE_APP_PASSWORD=postgres-core/workspace_app,
+                HEALTH_CHECK_PASSWORD=postgres-core/health_check,
+                PGBR_PASSWORD=postgres-core/pgbackrest,
+                PGBACKREST_REPO1_CIPHER_PASS=postgres-core/pgbackrest_cipher
 
           resources:
             requests:
               cpu: "500m"
               memory: "2Gi"
+
             limits:
               cpu: "4"
               memory: "8Gi"
 
+          # ------------------------------------------------------------
+          # Storage
+          # ------------------------------------------------------------
+
           volumeMounts:
+
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
 
@@ -100,62 +132,101 @@ spec:
             - name: postgres-socket
               mountPath: /var/run/postgresql
 
-            - name: openbao-approle-shared
-              mountPath: /openbao/approle-secrets
+            # ----------------------------------------------------------
+            # OpenBao AppRole
+            # ----------------------------------------------------------
+
+            - name: openbao-approle
+              mountPath: /openbao-approle
               readOnly: true
+
+            # ----------------------------------------------------------
+            # OpenBao TLS
+            # ----------------------------------------------------------
 
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
 
+          # ------------------------------------------------------------
+          # Readiness
+          # ------------------------------------------------------------
+
           readinessProbe:
             exec:
               command:
-                - pg_isready
-                - -U
-                - health_check
-                - -d
-                - postgres
-                - -h
-                - /var/run/postgresql
-                - -p
-                - "5432"
-                - -q
+                - sh
+                - -ec
+                - |
+                  pg_isready \
+                    -U health_check \
+                    -d postgres \
+                    -h /var/run/postgresql \
+                    -p 5432 \
+                    -q
+
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
+
+          # ------------------------------------------------------------
+          # Liveness
+          # ------------------------------------------------------------
 
           livenessProbe:
             exec:
               command:
-                - pg_isready
-                - -U
-                - health_check
-                - -d
-                - postgres
-                - -h
-                - /var/run/postgresql
-                - -p
-                - "5432"
-                - -q
+                - sh
+                - -ec
+                - |
+                  pg_isready \
+                    -U health_check \
+                    -d postgres \
+                    -h /var/run/postgresql \
+                    -p 5432 \
+                    -q
+
             initialDelaySeconds: 60
             periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 6
+
+      # ==================================================================
+      # VOLUMES
+      # ==================================================================
 
       volumes:
+
+        # PostgreSQL data + configuration
         - name: postgres-data
           persistentVolumeClaim:
             claimName: postgresql-data-core-pvc
 
+        # PostgreSQL backups
         - name: postgres-backups
           persistentVolumeClaim:
             claimName: postgresql-backup-core-pvc
 
+        # PostgreSQL socket
         - name: postgres-socket
           persistentVolumeClaim:
             claimName: postgres-core-socket-pvc
 
-        - name: openbao-approle-shared
+        # --------------------------------------------------------------
+        # OpenBao AppRole
+        #
+        # Contains:
+        # /openbao-approle/postgres-core/secret_id
+        # --------------------------------------------------------------
+
+        - name: openbao-approle
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
+
+        # --------------------------------------------------------------
+        # OpenBao TLS certificate
+        # --------------------------------------------------------------
 
         - name: shared-certs
           persistentVolumeClaim:
