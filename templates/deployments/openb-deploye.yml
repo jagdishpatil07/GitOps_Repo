@@ -312,14 +312,14 @@ spec:
             claimName: openbao-approle-pgbouncer1-app-pvc-1
 
         - name: approle-dashboard-api
-          persistentVolumeClaim:
-            claimName: openbao-approle-dashboard-api-pvc-1
-          #emptyDir: {}
+          #persistentVolumeClaim:
+          #  claimName: openbao-approle-dashboard-api-pvc-1
+          emptyDir: {}
 
         - name: approle-datahub-api
-          persistentVolumeClaim:
-            claimName: openbao-approle-datahub-api-pvc-1
-          #emptyDir: {}
+          #persistentVolumeClaim:
+          #  claimName: openbao-approle-datahub-api-pvc-1
+          emptyDir: {}
 
         - name: approle-postgres-backup
           persistentVolumeClaim:
