@@ -147,8 +147,9 @@ spec:
 
       volumes:
         - name: openbao-approle-datahub-api
-          persistentVolumeClaim:
-            claimName: openbao-approle-datahub-api-pvc-1
+          #persistentVolumeClaim:
+          #  claimName: openbao-approle-datahub-api-pvc-1
+          emptyDir: {}
 
         - name: shared-certs
           persistentVolumeClaim:
