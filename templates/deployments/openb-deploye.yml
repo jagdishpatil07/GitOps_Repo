@@ -72,18 +72,6 @@ spec:
             - name: openbao-data
               mountPath: /openbao/data
 
-            # ============================================================
-            # OpenBao Raft storage
-            #
-            # IMPORTANT:
-            # config.hcl uses:
-            #
-            # storage "raft" {
-            #   path = "/openbao/raft"
-            # }
-            #
-            # Therefore this PVC MUST be mounted exactly here.
-            # ============================================================
 
             - name: openbao-raft
               mountPath: /openbao/raft
@@ -101,7 +89,7 @@ spec:
 
             - name: openbao-tls
               mountPath: /openbao/tls
-              #readOnly: true
+              readOnly: true
 
             # ============================================================
             # Shared certificates
@@ -115,7 +103,7 @@ spec:
             # ============================================================
 
             - name: openbao-approle-shared
-              mountPath: /openbao/approle-secrets
+              mountPath: /openbao/approle-secrets/
 
           # ============================================================
           # Resources
@@ -200,9 +188,8 @@ spec:
         # ============================================================
 
         - name: openbao-data
-          #persistentVolumeClaim:
-          #  claimName: openbao-data-pvc-1
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: openbao-data-pvc-1
 
         # ============================================================
         # OpenBao integrated Raft storage
@@ -219,31 +206,31 @@ spec:
         # ============================================================
 
         - name: openbao-init
-          #persistentVolumeClaim:
-          #  claimName: openbao-init-pvc-1
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: openbao-init-pvc-1
 
         # ============================================================
         # TLS
         # ============================================================
 
         - name: openbao-tls
-          #persistentVolumeClaim:
-          #  claimName: openbao-tls-pvc-1
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: openbao-tls-pvc-1
 
         # ============================================================
         # Shared certificates
         # ============================================================
 
         - name: shared-certs
-          #persistentVolumeClaim:
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
 
         # ============================================================
         # AppRole persistence
         # ============================================================
+
         - name: openbao-approle-shared
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
 
+ 
