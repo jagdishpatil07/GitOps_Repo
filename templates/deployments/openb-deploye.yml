@@ -319,7 +319,7 @@ spec:
         - name: approle-datahub-api
           persistentVolumeClaim:
             claimName: openbao-approle-datahub-api-pvc-1
-          emptyDir: {}
+          #emptyDir: {}
 
         - name: approle-postgres-backup
           persistentVolumeClaim:
