@@ -67,9 +67,9 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.workerComputation0.pvc.computation }}
 
-        - name: openbao-approle
+        - name: openbao-approle-shared
           persistentVolumeClaim:
-            claimName: openbao-approle-revolutio-app-pvc-1
+            claimName: openbao-approle-shared-pvc-1
 
         - name: shared-certs
           persistentVolumeClaim:
@@ -145,7 +145,7 @@ spec:
               value: "revolutio-app"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/secret_id"
+              value: "/openbao/approle-secrets/revolutio-app/secret_id"
 
             - name: OPENBAO_SECRETS
               value: >-
@@ -202,8 +202,8 @@ spec:
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
 
-            - name: openbao-approle
-              mountPath: /openbao-approle
+            - name: openbao-approle-shared
+              mountPath: /openbao/approle-secrets/
               readOnly: true
 
             - name: shared-certs
