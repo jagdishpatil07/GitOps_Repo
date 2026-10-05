@@ -101,7 +101,7 @@ spec:
               mountPath: /var/run/postgresql
 
             - name: openbao-approle
-              mountPath: /openbao/approle-secrets/
+              mountPath: /openbao-approle
               readOnly: true
 
             - name: shared-certs
