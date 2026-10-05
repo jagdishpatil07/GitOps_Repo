@@ -93,7 +93,7 @@ spec:
               value: "datahub-api"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/rabbitmq-worker/secret_id"
+              value: "/openbao/approle-secrets/datahub-api/secret_id"
 
             - name: OPENBAO_SECRETS
               value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,POSTGRES_PASSWORD=postgres-core/platform_app,RABBITMQ_PASSWORD=rabbitmq/admin,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key"
