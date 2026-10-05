@@ -93,7 +93,7 @@ spec:
               value: "datahub-api"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/secret_id"
+              value: "/openbao/approle-secrets/rabbitmq-worker/secret_id"
 
             - name: OPENBAO_SECRETS
               value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,POSTGRES_PASSWORD=postgres-core/platform_app,RABBITMQ_PASSWORD=rabbitmq/admin,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key"
@@ -103,8 +103,8 @@ spec:
 
           volumeMounts:
 
-            - name: openbao-approle-datahub-api
-              mountPath: /openbao-approle
+            - name: openbao-approle-shared
+              mountPath: /openbao/approle-secrets/
               readOnly: true
 
             - name: shared-certs
@@ -121,9 +121,9 @@ spec:
 
       volumes:
 
-        - name: openbao-approle-datahub-api
+        - name: openbao-approle-shared
           persistentVolumeClaim:
-            claimName: openbao-approle-datahub-api-pvc-1
+            claimName: openbao-approle-shared-pvc-1
 
         - name: shared-certs
           persistentVolumeClaim:
