@@ -40,9 +40,9 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.keydb.pvc.data }}
 
-        - name: openbao-approle
+        - name: openbao-approle-shared
           persistentVolumeClaim:
-            claimName: {{ .Values.keydb.pvc.openbaoAppRole }}
+            claimName: openbao-approle-shared-pvc-1
 
         - name: shared-certs
           persistentVolumeClaim:
@@ -79,7 +79,7 @@ spec:
               value: "keydb"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/secret_id"
+              value: "/openbao/approle-secrets/keydb/secret_id"
 
             - name: OPENBAO_SECRET_PATH
               value: "cache/keydb"
@@ -91,8 +91,8 @@ spec:
             - name: keydb-data
               mountPath: /data
 
-            - name: openbao-approle
-              mountPath: /openbao-approle
+            - name: openbao-approle-shared
+              mountPath: /openbao/approle-secrets/
               readOnly: true
 
             - name: shared-certs
