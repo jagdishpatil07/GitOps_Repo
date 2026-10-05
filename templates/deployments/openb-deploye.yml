@@ -200,8 +200,9 @@ spec:
         # ============================================================
 
         - name: openbao-data
-          persistentVolumeClaim:
-            claimName: openbao-data-pvc-1
+          #persistentVolumeClaim:
+          #  claimName: openbao-data-pvc-1
+          emptyDir: {}
 
         # ============================================================
         # OpenBao integrated Raft storage
@@ -218,16 +219,18 @@ spec:
         # ============================================================
 
         - name: openbao-init
-          persistentVolumeClaim:
-            claimName: openbao-init-pvc-1
+          #persistentVolumeClaim:
+          #  claimName: openbao-init-pvc-1
+          emptyDir: {}
 
         # ============================================================
         # TLS
         # ============================================================
 
         - name: openbao-tls
-          persistentVolumeClaim:
-            claimName: openbao-tls-pvc-1
+          #persistentVolumeClaim:
+          #  claimName: openbao-tls-pvc-1
+          emptyDir: {}
 
         # ============================================================
         # Shared certificates
@@ -235,7 +238,7 @@ spec:
 
         - name: shared-certs
           persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
+            emptyDir: {}
 
         # ============================================================
         # AppRole persistence
