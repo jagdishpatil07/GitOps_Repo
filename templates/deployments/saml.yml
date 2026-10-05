@@ -8,6 +8,12 @@ metadata:
 spec:
   replicas: {{ .Values.saml.replicaCount }}
 
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
   selector:
     matchLabels:
       service: saml
@@ -23,12 +29,14 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecrets.name }}
 
+      terminationGracePeriodSeconds: 3
+
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
         fsGroup: 70070
-
-      terminationGracePeriodSeconds: 3
+        seccompProfile:
+          type: RuntimeDefault
 
       containers:
         - name: saml
@@ -49,7 +57,8 @@ spec:
               --worker-class uvicorn.workers.UvicornWorker
 
           ports:
-            - containerPort: 9000
+            - name: http
+              containerPort: 9000
               protocol: TCP
 
           env:
@@ -66,6 +75,7 @@ spec:
             - name: TZ
               value: "UTC"
 
+            # PostgreSQL
             - name: POSTGRES_USER
               value: "platform_app"
 
@@ -81,12 +91,14 @@ spec:
             - name: DATABASE_TYPE
               value: "PostgreSQL"
 
+            # Redis
             - name: REDIS_HOST
               value: "redis"
 
             - name: REDIS_PORT
               value: "6379"
 
+            # OpenBao
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -116,6 +128,7 @@ spec:
                 REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
 
           envFrom:
+
             - configMapRef:
                 name: {{ .Values.saml.configMaps.web }}
 
@@ -126,6 +139,7 @@ spec:
             requests:
               cpu: {{ .Values.saml.resources.requests.cpu | quote }}
               memory: {{ .Values.saml.resources.requests.memory | quote }}
+
             limits:
               cpu: {{ .Values.saml.resources.limits.cpu | quote }}
               memory: {{ .Values.saml.resources.limits.memory | quote }}
@@ -133,29 +147,47 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
 
           volumeMounts:
 
+            # Existing application configuration
             - name: platform-configs
               mountPath: /opt/revolutio/Platform_Configs
 
+            # OpenBao AppRole secret
             - name: openbao-approle-shared
-              mountPath: /openbao/approle-secrets/
+              mountPath: /openbao/approle-secrets
               readOnly: true
 
+            # OpenBao TLS certificate
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
 
+            # Django/static files generated at startup
+            - name: static
+              mountPath: /opt/revolutio/static
+
+            # Docker Compose equivalent:
+            # /opt/temp
             - name: temp
               mountPath: /opt/temp
 
+            # Docker Compose equivalent:
+            # /opt/revolutio/logs
             - name: logs
               mountPath: /opt/revolutio/logs
 
+            # Docker Compose equivalent:
+            # /tmp
             - name: tmp
               mountPath: /tmp
 
+            # Docker Compose equivalent:
+            # /home/revolutio/.gunicorn
             - name: gunicorn
               mountPath: /home/revolutio/.gunicorn
 
@@ -165,6 +197,7 @@ spec:
                 - /bin/bash
                 - /opt/revolutio/healthcheck_saml.sh
                 - "9000"
+
             periodSeconds: 10
             timeoutSeconds: 10
             failureThreshold: 30
@@ -175,6 +208,7 @@ spec:
                 - /bin/bash
                 - /opt/revolutio/healthcheck_saml.sh
                 - "9000"
+
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
@@ -185,6 +219,7 @@ spec:
                 - /bin/bash
                 - /opt/revolutio/healthcheck_saml.sh
                 - "9000"
+
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
@@ -193,33 +228,52 @@ spec:
 
       volumes:
 
+        # Application configuration
         - name: platform-configs
           persistentVolumeClaim:
             claimName: {{ .Values.saml.pvc.platformConfigs }}
 
+        # Shared OpenBao AppRole secrets
         - name: openbao-approle-shared
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
 
+        # Shared OpenBao certificates
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
+        # Docker Compose did not explicitly define this,
+        # but the application requires it because fetch-entrypoint.sh
+        # publishes static files here while the root filesystem is read-only.
+        - name: static
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+
+        # Docker Compose:
+        # tmpfs /opt/temp
         - name: temp
           emptyDir:
             medium: Memory
             sizeLimit: 1Gi
 
+        # Docker Compose:
+        # tmpfs /opt/revolutio/logs
         - name: logs
           emptyDir:
             medium: Memory
             sizeLimit: 1Gi
 
+        # Docker Compose:
+        # tmpfs /tmp
         - name: tmp
           emptyDir:
             medium: Memory
             sizeLimit: 1Gi
 
+        # Docker Compose:
+        # tmpfs /home/revolutio/.gunicorn
         - name: gunicorn
           emptyDir:
             medium: Memory
