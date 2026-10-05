@@ -104,6 +104,7 @@ spec:
 
             # OpenBao AppRole secret_id
             - name: openbao-approle-shared
+              mountPath: /openbao-approle
               subPath: dashboard-api
               readOnly: true
 
