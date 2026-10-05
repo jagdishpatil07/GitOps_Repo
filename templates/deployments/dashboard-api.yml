@@ -103,8 +103,8 @@ spec:
               readOnly: true
 
             # OpenBao AppRole secret_id
-            - name: openbao-approle-dashboard-api
-              mountPath: /openbao-approle
+            - name: openbao-approle-shared
+              subPath: dashboard-api
               readOnly: true
 
             # OpenBao CA certificate
@@ -168,10 +168,10 @@ spec:
           persistentVolumeClaim:
             claimName: platform-data-pvc-1
 
-        - name: openbao-approle-dashboard-api
-          #persistentVolumeClaim:
-           # claimName: openbao-approle-dashboard-api-pvc-1
-          emptyDir: {}
+        - name: openbao-approle-shared
+          persistentVolumeClaim:
+            claimName: openbao-approle-shared-pvc-1
+          
 
         - name: shared-certs
           persistentVolumeClaim:
