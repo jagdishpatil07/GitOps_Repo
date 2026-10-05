@@ -1,5 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: dashboard-api
   namespace: myapp
@@ -27,10 +28,11 @@ spec:
         app: dashboard-api
 
     spec:
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+
       imagePullSecrets:
         - name: acr-secret
-
-      terminationGracePeriodSeconds: 30
 
       securityContext:
         seccompProfile:
@@ -39,14 +41,18 @@ spec:
       containers:
         - name: dashboard-api
 
-          # IMPORTANT:
-          # Do NOT specify command/args here.
+          # ==========================================================
+          # IMAGE
           #
-          # Docker image provides:
-          # ENTRYPOINT=/usr/local/bin/fetch-entrypoint.sh
-          # CMD=/start.sh
+          # Do NOT override command/args.
           #
-          # The OpenBao wrapper must execute first.
+          # Image:
+          # ENTRYPOINT = /usr/local/bin/fetch-entrypoint.sh
+          # CMD        = /start.sh
+          #
+          # OpenBao fetch wrapper must execute first.
+          # ==========================================================
+
           image: revolutio.azurecr.io/revolutio_kubernetes/dashboard-api:latest
           imagePullPolicy: Always
 
@@ -56,10 +62,18 @@ spec:
               protocol: TCP
 
           env:
+
+            # ========================================================
+            # TIMEZONE
+            # ========================================================
+
             - name: TZ
               value: "UTC"
 
-            # OpenBao
+            # ========================================================
+            # OPENBAO
+            # ========================================================
+
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
 
@@ -69,26 +83,58 @@ spec:
             - name: OPENBAO_ROLE_ID
               value: "dashboard-api"
 
+            # Shared AppRole PVC:
+            #
+            # /openbao-approle/
+            #   dashboard-api/
+            #     secret_id
+            #
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao-approle/secret_id"
 
-            # IMPORTANT:
-            # fetch-entrypoint.sh uses this to retrieve secrets.
+            # ========================================================
+            # OPENBAO SECRETS
+            # ========================================================
+            #
+            # These values are fetched at container startup.
+            # No passwords are stored in this Deployment.
+            #
+
             - name: OPENBAO_SECRETS
               value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin"
+
+            # ========================================================
+            # OPENBAO URL TEMPLATES
+            # ========================================================
 
             - name: OPENBAO_URL_TEMPLATES
               value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
 
-            # Application
+            # ========================================================
+            # APPLICATION
+            # ========================================================
+
             - name: PLATFORM_DATA_PATH
               value: "/app/Platform_Data"
+
+          # ==========================================================
+          # APPLICATION CONFIG
+          # ==========================================================
 
           envFrom:
             - configMapRef:
                 name: envs-production-web
 
+          # ==========================================================
+          # VOLUMES
+          # ==========================================================
+
           volumeMounts:
+
+            # --------------------------------------------------------
+            # Application storage
+            # --------------------------------------------------------
+
             - name: media
               mountPath: /media
 
@@ -102,19 +148,54 @@ spec:
               mountPath: /app/Platform_Data
               readOnly: true
 
-            # OpenBao AppRole secret_id
+            # --------------------------------------------------------
+            # OpenBao AppRole
+            #
+            # PVC:
+            # openbao-approle-shared-pvc-1
+            #
+            # NFS:
+            # /data/nfs/openbao-approle-shared/dashboard-api/secret_id
+            #
+            # Container:
+            # /openbao-approle/secret_id
+            # --------------------------------------------------------
+
             - name: openbao-approle-shared
               mountPath: /openbao-approle
               subPath: dashboard-api
               readOnly: true
 
-            # OpenBao CA certificate
+            # --------------------------------------------------------
+            # OpenBao TLS CA
+            # --------------------------------------------------------
+
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
 
-          # Dashboard API must be able to establish its database
-          # connection before becoming ready.
+          # ==========================================================
+          # STARTUP PROBE
+          # ==========================================================
+          #
+          # Allows up to 5 minutes for application startup.
+          #
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+            successThreshold: 1
+
+          # ==========================================================
+          # READINESS PROBE
+          # ==========================================================
+          #
+          # Pod receives traffic only after API listens on 5002.
+          #
+
           readinessProbe:
             tcpSocket:
               port: http
@@ -124,7 +205,13 @@ spec:
             failureThreshold: 6
             successThreshold: 1
 
-          # Restart if API stops listening.
+          # ==========================================================
+          # LIVENESS PROBE
+          # ==========================================================
+          #
+          # Restart container if API stops listening.
+          #
+
           livenessProbe:
             tcpSocket:
               port: http
@@ -134,14 +221,9 @@ spec:
             failureThreshold: 3
             successThreshold: 1
 
-          # Give Kubernetes enough time for Python/API startup.
-          startupProbe:
-            tcpSocket:
-              port: http
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 30
-            successThreshold: 1
+          # ==========================================================
+          # RESOURCES
+          # ==========================================================
 
           resources:
             requests:
@@ -152,31 +234,68 @@ spec:
               cpu: "2"
               memory: "4Gi"
 
+      # ==============================================================
+      # VOLUMES
+      # ==============================================================
+
       volumes:
+
+        # ------------------------------------------------------------
+        # Application media
+        # ------------------------------------------------------------
+
         - name: media
           persistentVolumeClaim:
             claimName: media-pvc-1
+
+        # ------------------------------------------------------------
+        # Application assets
+        # ------------------------------------------------------------
 
         - name: assets
           persistentVolumeClaim:
             claimName: assets-pvc-1
 
+        # ------------------------------------------------------------
+        # Platform configuration
+        # ------------------------------------------------------------
+
         - name: platform-configs
           persistentVolumeClaim:
             claimName: platform-configs-pvc-1
+
+        # ------------------------------------------------------------
+        # Platform data
+        # ------------------------------------------------------------
 
         - name: platform-data
           persistentVolumeClaim:
             claimName: platform-data-pvc-1
 
+        # ------------------------------------------------------------
+        # Shared OpenBao AppRole PVC
+        # ------------------------------------------------------------
+        #
+        # NFS:
+        # /data/nfs/openbao-approle-shared/
+        #
+        # This Deployment uses:
+        # /data/nfs/openbao-approle-shared/dashboard-api/secret_id
+        #
+        # because of:
+        # subPath: dashboard-api
+        #
+
         - name: openbao-approle-shared
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
-          
+
+        # ------------------------------------------------------------
+        # Shared OpenBao TLS certificate
+        # ------------------------------------------------------------
 
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
-      restartPolicy: Always
       dnsPolicy: ClusterFirst
