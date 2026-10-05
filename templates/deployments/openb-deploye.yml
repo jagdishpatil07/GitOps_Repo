@@ -201,7 +201,8 @@ spec:
         # ============================================================
 
         - name: openbao-raft
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: openbao-raft-pvc-1
 
         # ============================================================
         # Bootstrap/init persistence
