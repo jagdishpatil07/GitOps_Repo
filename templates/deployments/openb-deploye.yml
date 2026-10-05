@@ -238,7 +238,7 @@ spec:
 
         - name: shared-certs
           #persistentVolumeClaim:
-            emptyDir: {}
+          emptyDir: {}
 
         # ============================================================
         # AppRole persistence
