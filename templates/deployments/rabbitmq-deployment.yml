@@ -68,7 +68,7 @@ spec:
               value: "rabbitmq"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/secret_id"
+              value: "/openbao/approle-secrets/rabbitmq/secret_id"
 
             - name: OPENBAO_SECRETS
               value: "RABBITMQ_DEFAULT_PASS=rabbitmq/admin"
@@ -94,8 +94,8 @@ spec:
             # OpenBao AppRole
             # =========================
 
-            - name: openbao-approle-rabbitmq
-              mountPath: /openbao-approle
+            - name: openbao-approle-shared
+              mountPath: /openbao/approle-secrets/
               readOnly: true
 
             # =========================
@@ -143,9 +143,9 @@ spec:
         # OpenBao AppRole
         # =========================
 
-        - name: openbao-approle-rabbitmq
+        - name: openbao-approle-shared
           persistentVolumeClaim:
-            claimName: openbao-approle-rabbitmq-pvc-1
+            claimName: openbao-approle-shared-pvc-1
 
         # =========================
         # OpenBao TLS
