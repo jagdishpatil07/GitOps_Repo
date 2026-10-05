@@ -169,8 +169,9 @@ spec:
             claimName: platform-data-pvc-1
 
         - name: openbao-approle-dashboard-api
-          persistentVolumeClaim:
-            claimName: openbao-approle-dashboard-api-pvc-1
+          #persistentVolumeClaim:
+           # claimName: openbao-approle-dashboard-api-pvc-1
+          emptyDir: {}
 
         - name: shared-certs
           persistentVolumeClaim:
