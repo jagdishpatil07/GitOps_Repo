@@ -111,8 +111,8 @@ spec:
             periodSeconds: 20
 
           volumeMounts:
-            - name: openbao-approle-revolutio-app
-              mountPath: /openbao/approle-secrets/revolutio-app
+            - name: openbao-approle-shared
+              mountPath: /openbao/approle-secrets/
               readOnly: true
 
             - name: shared-certs
@@ -124,9 +124,9 @@ spec:
       dnsPolicy: ClusterFirst
 
       volumes:
-        - name: openbao-approle-revolutio-app
+        - name: openbao-approle-shared
           persistentVolumeClaim:
-            claimName: {{ .Values.arrowflight.pvc.openbaoAppRole }}
+            claimName: openbao-approle-shared-pvc-1
 
         - name: shared-certs
           persistentVolumeClaim:
