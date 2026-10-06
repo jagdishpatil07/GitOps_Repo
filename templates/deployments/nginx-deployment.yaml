@@ -63,7 +63,7 @@ spec:
 
         - name: nginx
 
-          image: "revolutio_kubernetes/nginx:latest"
+          image: "revolutio.azurecr.io/revolutio_kubernetes/nginx:latest"
 
           imagePullPolicy: Always
 
