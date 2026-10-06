@@ -41,56 +41,78 @@ spec:
 
       volumes:
 
-        ######################################################
-        # NGINX CONFIG
-        ######################################################
+        # ==================================================
+        # NGINX CONFIGURATION
+        # ==================================================
 
         - name: nginx-config
           configMap:
             name: nginx-config
             defaultMode: 0444
 
-        ######################################################
-        # NGINX WRITABLE RUNTIME DIRECTORIES
-        ######################################################
+        # ==================================================
+        # NGINX /etc/nginx/conf.d
+        # Docker tmpfs equivalent
+        # ==================================================
 
         - name: nginx-conf-d
           emptyDir:
             medium: Memory
             sizeLimit: 1Mi
 
+        # ==================================================
+        # NGINX /run
+        # Docker tmpfs equivalent
+        # ==================================================
+
         - name: nginx-run
           emptyDir:
             medium: Memory
             sizeLimit: 1Mi
+
+        # ==================================================
+        # NGINX CACHE
+        # Docker tmpfs equivalent
+        # ==================================================
 
         - name: nginx-cache
           emptyDir:
             medium: Memory
             sizeLimit: 1Mi
 
-        ######################################################
-        # APPLICATION STORAGE
-        ######################################################
+        # ==================================================
+        # STATIC
+        # ==================================================
 
         - name: static-storage
           persistentVolumeClaim:
             claimName: {{ .Values.nginx.pvc.static }}
 
+        # ==================================================
+        # MEDIA
+        # ==================================================
+
         - name: media-storage
           persistentVolumeClaim:
             claimName: {{ .Values.nginx.pvc.media }}
 
-        ######################################################
-        # ASSETS
-        ######################################################
-        # IMPORTANT:
-        # Keep this only if nginx.pvc.assets exists in values.yaml.
-        # Otherwise remove this volume and its mount.
+        # ==================================================
+        # SSL
+        # ==================================================
+        # Secret must contain:
+        #
+        # ssl.crt
+        # ssl.key
+        #
+        # Created from:
+        # /App/Revolutio/nginx/ssl/ssl.crt
+        # /App/Revolutio/nginx/ssl/ssl.key
+        # ==================================================
 
-        - name: assets-storage
-          persistentVolumeClaim:
-            claimName: {{ .Values.nginx.pvc.assets }}
+        - name: nginx-ssl
+          secret:
+            secretName: nginx-ssl
+            defaultMode: 0440
 
       containers:
 
@@ -109,15 +131,23 @@ spec:
                 - ALL
 
           ports:
+
+            # HTTP
             - name: http
               containerPort: 8080
               protocol: TCP
 
+            # HTTPS
+            #
+            # Your nginx.conf must listen on this port
+            # if using 8443.
+            #
             - name: https
               containerPort: 8443
               protocol: TCP
 
           env:
+
             - name: SERVER_NAME
               value: "_"
 
@@ -126,9 +156,9 @@ spec:
               cpu: "1"
               memory: "512Mi"
 
-          ####################################################
+          # =================================================
           # START NGINX
-          ####################################################
+          # =================================================
 
           command:
             - /bin/sh
@@ -145,7 +175,21 @@ spec:
               echo "NGINX version:"
               nginx -v
 
-              echo "Checking configuration..."
+              echo "Checking SSL files..."
+
+              if [ -f /etc/ssl/revolutio/ssl.crt ]; then
+                echo "SSL certificate found."
+              else
+                echo "WARNING: /etc/ssl/revolutio/ssl.crt not found."
+              fi
+
+              if [ -f /etc/ssl/revolutio/ssl.key ]; then
+                echo "SSL private key found."
+              else
+                echo "WARNING: /etc/ssl/revolutio/ssl.key not found."
+              fi
+
+              echo "Checking NGINX configuration..."
 
               nginx -t
 
@@ -153,70 +197,86 @@ spec:
 
               exec nginx -g 'daemon off;'
 
-          ####################################################
-          # CONFIGURATION
-          ####################################################
+          # =================================================
+          # VOLUME MOUNTS
+          # =================================================
 
           volumeMounts:
+
+            # ------------------------------------------------
+            # nginx.conf
+            # ------------------------------------------------
 
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
               readOnly: true
 
+            # ------------------------------------------------
+            # mime.types
+            # ------------------------------------------------
+
             - name: nginx-config
               mountPath: /etc/nginx/mime.types
               subPath: mime.types
               readOnly: true
+
+            # ------------------------------------------------
+            # blockuseragents.rules
+            # ------------------------------------------------
 
             - name: nginx-config
               mountPath: /etc/nginx/blockuseragents.rules
               subPath: blockuseragents.rules
               readOnly: true
 
-            ##################################################
-            # Writable conf.d because root filesystem is RO
-            ##################################################
+            # ------------------------------------------------
+            # Writable conf.d
+            # ------------------------------------------------
 
             - name: nginx-conf-d
               mountPath: /etc/nginx/conf.d
 
-            ##################################################
-            # Runtime
-            ##################################################
+            # ------------------------------------------------
+            # /run
+            # ------------------------------------------------
 
             - name: nginx-run
               mountPath: /run
 
+            # ------------------------------------------------
+            # NGINX cache
+            # ------------------------------------------------
+
             - name: nginx-cache
               mountPath: /var/cache/nginx
 
-            ##################################################
-            # Static
-            ##################################################
+            # ------------------------------------------------
+            # Static files
+            # ------------------------------------------------
 
             - name: static-storage
               mountPath: /var/www/revolutio/static
               readOnly: true
 
-            ##################################################
-            # Media
-            ##################################################
+            # ------------------------------------------------
+            # Media files
+            # ------------------------------------------------
 
             - name: media-storage
               mountPath: /var/www/revolutio/media
 
-            ##################################################
-            # Assets
-            ##################################################
+            # ------------------------------------------------
+            # SSL
+            # ------------------------------------------------
 
-            - name: assets-storage
-              mountPath: /var/www/asset
+            - name: nginx-ssl
+              mountPath: /etc/ssl/revolutio
               readOnly: true
 
-          ####################################################
-          # PROBES
-          ####################################################
+          # =================================================
+          # STARTUP PROBE
+          # =================================================
 
           startupProbe:
             httpGet:
@@ -227,6 +287,10 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 30
 
+          # =================================================
+          # READINESS PROBE
+          # =================================================
+
           readinessProbe:
             httpGet:
               path: /healthy
@@ -235,6 +299,10 @@ spec:
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 5
+
+          # =================================================
+          # LIVENESS PROBE
+          # =================================================
 
           livenessProbe:
             httpGet:
