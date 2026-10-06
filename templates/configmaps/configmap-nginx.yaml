@@ -5,104 +5,6 @@ metadata:
   namespace: myapp
 
 data:
-
-  nginx.conf: |
-    worker_processes auto;
-
-    events {
-      worker_connections 1024;
-    }
-
-    error_log /var/log/nginx/error.log info;
-
-    pid /var/run/nginx.pid;
-
-    http {
-      server_tokens off;
-
-      include /etc/nginx/mime.types;
-
-      default_type application/octet-stream;
-
-      log_format main '$remote_addr - $remote_user [$time_local] "$request" '
-                      '$status $body_bytes_sent "$http_referer" '
-                      '"$http_user_agent" "$http_x_forwarded_for"';
-
-      access_log /var/log/nginx/access.log main;
-
-      sendfile on;
-
-      tcp_nopush on;
-
-      tcp_nodelay on;
-
-      keepalive_timeout 65;
-
-      gzip on;
-
-      gzip_comp_level 2;
-
-      gzip_min_length 1000;
-
-      gzip_proxied expired no-cache no-store private auth;
-
-      gzip_types
-        text/plain
-        text/css
-        application/json
-        application/javascript
-        application/x-javascript
-        text/xml
-        application/xml
-        application/xml+rss
-        text/javascript
-        image/x-icon;
-
-      include /etc/nginx/conf.d/*.conf;
-
-      include /etc/nginx/blockuseragents.rules;
-    }
-
-
-  mime.types: |
-    types {
-        text/html html htm shtml;
-        text/css css;
-        text/xml xml;
-        image/gif gif;
-        image/jpeg jpeg jpg;
-        application/javascript js;
-        application/json json;
-        image/png png;
-        image/svg+xml svg;
-        image/webp webp;
-        image/x-icon ico;
-        image/bmp bmp;
-        image/tiff tif tiff;
-        font/woff woff;
-        font/woff2 woff2;
-        application/pdf pdf;
-        application/zip zip;
-        application/gzip gz;
-        application/octet-stream bin exe;
-        application/vnd.ms-fontobject eot;
-        application/vnd.openxmlformats-officedocument.wordprocessingml.document docx;
-        application/vnd.openxmlformats-officedocument.spreadsheetml.sheet xlsx;
-        application/vnd.openxmlformats-officedocument.presentationml.presentation pptx;
-    }
-
-
-  blockuseragents.rules: |
-    map $http_user_agent $blockedagent {
-        default         0;
-        ~*malicious     1;
-        ~*bot           1;
-        ~*backdoor      1;
-        ~*crawler       1;
-        ~*bandit        1;
-    }
-
-
   default.conf: |
     upstream revolutio_web {
       server web:5000;
@@ -657,3 +559,4 @@ data:
         }
       }
     }
+    
