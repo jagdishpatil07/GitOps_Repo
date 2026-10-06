@@ -49,9 +49,9 @@ data:
       server datahubapp:3003;
     }
 
-    #upstream micro_datahub_kong {
-     # server kong:8002;
-    #}
+    upstream micro_datahub_kong {
+      server kong:8002;
+    }
 
     #upstream observability_api {
      # server observability-api:5004;
@@ -211,54 +211,6 @@ data:
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
         proxy_set_header Host $http_host;
-      }
-
-      location /dashboard-api/ {
-        proxy_pass http://micro_dashboard_api;
-
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_hide_header X-Powered-By;
-        proxy_hide_header Server;
-
-        proxy_max_temp_file_size 0;
-
-        add_header Cache-Control "no-cache, no-store";
-        add_header Pragma "no-cache" always;
-        add_header Expires "0" always;
-      }
-
-      location /datahub-api/ws/ {
-        proxy_pass http://micro_datahub_api;
-
-        proxy_http_version 1.1;
-
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        proxy_read_timeout 3600s;
-        proxy_buffering off;
-      }
-
-      location /datahub-api/ {
-        proxy_pass http://micro_datahub_api;
-
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_hide_header X-Powered-By;
-        proxy_hide_header Server;
-
-        proxy_max_temp_file_size 0;
-
-        add_header Cache-Control "no-cache, no-store";
-        add_header Pragma "no-cache" always;
-        add_header Expires "0" always;
       }
 
       location /dashboard/ {
