@@ -5,6 +5,16 @@ metadata:
   namespace: myapp
 
 data:
+  blockuseragents.rules: |
+    map $http_user_agent $blockedagent {
+            default         0;
+            ~*malicious     1;
+            ~*bot           1;
+            ~*backdoor      1;
+            ~*crawler       1;
+            ~*bandit        1;
+    }
+
   default.conf: |
     upstream revolutio_web {
       server web:5000;
@@ -51,7 +61,6 @@ data:
       server vantage-ui:3004;
     }
 
-
     server {
       listen 8080;
 
@@ -68,7 +77,6 @@ data:
       }
     }
 
-
     server {
       listen 443 ssl;
 
@@ -79,15 +87,12 @@ data:
       }
 
       ssl_certificate /etc/ssl/revolutio/ssl.crt;
-
       ssl_certificate_key /etc/ssl/revolutio/ssl.key;
 
       ssl_protocols TLSv1.2 TLSv1.3;
 
       ssl_session_timeout 1d;
-
       ssl_session_cache shared:MozSSL:10m;
-
       ssl_session_tickets off;
 
       ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305';
@@ -96,56 +101,32 @@ data:
 
       add_header Strict-Transport-Security "max-age=31536000; includeSubdomains; preload";
 
-
       location = /healthy {
         access_log off;
         default_type text/plain;
         return 200 "ok\n";
       }
 
-
-      # Security headers
-
       add_header X-XSS-Protection "1; mode=block";
-
       add_header X-Frame-Options "SAMEORIGIN";
-
       add_header X-Content-Type-Options "nosniff";
-
       add_header Referrer-Policy "same-origin";
-
       add_header Permissions-Policy "camera=(), geolocation=(), microphone=()";
-
       add_header Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' data:; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; connect-src 'self'" always;
-
       add_header Cross-Origin-Embedder-Policy "require-corp";
-
       add_header Cross-Origin-Opener-Policy "same-origin";
-
       add_header Cross-Origin-Resource-Policy "same-origin" always;
 
-
-      # Client buffer settings
-
       client_max_body_size 500M;
-
       client_body_buffer_size 500M;
-
       client_header_buffer_size 50M;
-
       client_body_timeout 10;
-
       client_header_timeout 10;
-
       large_client_header_buffers 2 600M;
-
 
       types {
         application/javascript mjs;
       }
-
-
-      # Static
 
       location /static/ {
         alias /var/www/revolutio/static/;
@@ -153,7 +134,6 @@ data:
         expires 1y;
 
         add_header Cache-Control "public, max-age=31536000" always;
-
         add_header X-Content-Type-Options "nosniff" always;
 
         error_page 403 = /403/;
@@ -164,16 +144,11 @@ data:
         error_page 502 = /502/;
       }
 
-
-      # Media
-
       location /media/ {
         alias /var/www/revolutio/media/;
 
         add_header Cache-Control "no-cache, no-store";
-
         add_header Pragma "no-cache" always;
-
         add_header Expires "0" always;
 
         error_page 403 = /403/;
@@ -183,9 +158,6 @@ data:
         error_page 503 = /503/;
         error_page 502 = /502/;
       }
-
-
-      # Assets
 
       location /asset/ {
         alias /var/www/asset/;
@@ -193,7 +165,6 @@ data:
         expires 1y;
 
         add_header Cache-Control "public, max-age=31536000" always;
-
         add_header X-Content-Type-Options "nosniff" always;
 
         error_page 403 = /403/;
@@ -204,36 +175,24 @@ data:
         error_page 502 = /502/;
       }
 
-
-      # SAML
-
       location /accounts/saml/ {
         proxy_pass http://revolutio_saml;
 
         proxy_set_header Host $http_host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_redirect off;
-
         proxy_http_version 1.1;
-
         proxy_buffering off;
-
         proxy_request_buffering off;
 
         proxy_read_timeout 1800;
-
         proxy_connect_timeout 1800;
-
         proxy_send_timeout 1800;
 
         proxy_hide_header X-Powered-By;
-
         proxy_hide_header Server;
 
         error_page 403 = /403/;
@@ -243,9 +202,6 @@ data:
         error_page 503 = /503/;
         error_page 502 = /502/;
       }
-
-
-      # WebSocket
 
       location /ws/ {
         proxy_pass http://revolutio_web;
@@ -253,78 +209,52 @@ data:
         proxy_http_version 1.1;
 
         proxy_set_header Upgrade $http_upgrade;
-
         proxy_set_header Connection "Upgrade";
-
         proxy_set_header Host $http_host;
       }
-
-
-      # Web Builder
 
       location /web-builder/ {
         proxy_pass http://revolutio_web_builder;
 
         proxy_set_header Connection keep-alive;
-
         proxy_set_header Host $http_host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_hide_header X-Powered-By;
-
         proxy_hide_header Server;
 
         proxy_max_temp_file_size 0;
       }
-
-
-      # Web Builder API
 
       location /web-builder-api/ {
         proxy_pass http://revolutio_web_builder_api;
 
         proxy_set_header Host $http_host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_hide_header X-Powered-By;
-
         proxy_hide_header Server;
 
-        add_header Cache-Control "no-cache, no-store";
-
-        add_header Pragma "no-cache" always;
-
-        add_header Expires "0" always;
-
         proxy_max_temp_file_size 0;
+
+        add_header Cache-Control "no-cache, no-store";
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
       }
-
-
-      # Vantage UI
 
       location /vantage/ {
         proxy_pass http://vantage_ui;
 
         proxy_set_header Host $http_host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_hide_header X-Powered-By;
-
         proxy_hide_header Server;
 
         proxy_max_temp_file_size 0;
@@ -332,28 +262,19 @@ data:
         add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';" always;
 
         add_header X-Content-Type-Options "nosniff" always;
-
         add_header X-Frame-Options "SAMEORIGIN" always;
-
         add_header Strict-Transport-Security "max-age=31536000; includeSubdomains; preload" always;
       }
-
-
-      # Observability API
 
       location /vantage-api/ {
         proxy_pass http://observability_api;
 
         proxy_set_header Host $http_host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_hide_header X-Powered-By;
-
         proxy_hide_header Server;
 
         proxy_max_temp_file_size 0;
@@ -365,41 +286,27 @@ data:
         add_header X-Content-Type-Options "nosniff" always;
 
         add_header Cache-Control "no-cache, no-store";
-
         add_header Pragma "no-cache" always;
-
         add_header Expires "0" always;
       }
-
-
-      # Dashboard API
 
       location /dashboard-api/ {
         proxy_pass http://micro_dashboard_api;
 
         proxy_set_header Host $http_host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_hide_header X-Powered-By;
-
         proxy_hide_header Server;
 
         proxy_max_temp_file_size 0;
 
         add_header Cache-Control "no-cache, no-store";
-
         add_header Pragma "no-cache" always;
-
         add_header Expires "0" always;
       }
-
-
-      # DataHub API WebSocket
 
       location /datahub-api/ws/ {
         proxy_pass http://micro_datahub_api;
@@ -407,66 +314,44 @@ data:
         proxy_http_version 1.1;
 
         proxy_set_header Upgrade $http_upgrade;
-
         proxy_set_header Connection "upgrade";
 
         proxy_read_timeout 3600s;
-
         proxy_buffering off;
       }
-
-
-      # DataHub API
 
       location /datahub-api/ {
         proxy_pass http://micro_datahub_api;
 
         proxy_set_header Host $http_host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_hide_header X-Powered-By;
-
         proxy_hide_header Server;
 
         proxy_max_temp_file_size 0;
 
         add_header Cache-Control "no-cache, no-store";
-
         add_header Pragma "no-cache" always;
-
         add_header Expires "0" always;
       }
-
-
-      # Dashboard
 
       location /dashboard/ {
         proxy_pass http://revolutio_dashboard;
 
         proxy_set_header Connection keep-alive;
-
         proxy_set_header Host $http_host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_hide_header X-Powered-By;
-
         proxy_hide_header Server;
 
         proxy_max_temp_file_size 0;
       }
-
-
-      # DataHub
 
       location ^~ /datahub/ {
         proxy_pass http://revolutio_datahub/datahub/;
@@ -474,16 +359,10 @@ data:
         proxy_http_version 1.1;
 
         proxy_set_header Host $host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
       }
-
-
-      # DataHub assets
 
       location ^~ /datahub/assets/ {
         proxy_pass http://revolutio_datahub/datahub/assets/;
@@ -491,52 +370,36 @@ data:
         expires 1y;
 
         add_header Cache-Control "public, max-age=31536000" always;
-
         add_header X-Content-Type-Options "nosniff" always;
 
         proxy_http_version 1.1;
-
         proxy_buffering off;
-
         proxy_request_buffering off;
 
         gzip off;
 
         proxy_set_header Host $host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
       }
-
-
-      # Main Web Application
 
       location / {
         proxy_pass http://revolutio_web;
 
         proxy_set_header Host $http_host;
-
         proxy_set_header X-Real-IP $remote_addr;
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
         proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_max_temp_file_size 0;
 
         proxy_read_timeout 10000;
-
         proxy_connect_timeout 1800;
-
         proxy_send_timeout 1800;
-
         send_timeout 1800;
 
         proxy_hide_header X-Powered-By;
-
         proxy_hide_header Server;
 
         error_page 403 = /403/;
@@ -559,4 +422,3 @@ data:
         }
       }
     }
-    
