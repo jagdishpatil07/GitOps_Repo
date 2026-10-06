@@ -21,29 +21,25 @@ data:
       keepalive 32;
     }
 
-    upstream revolutio_saml {
-      server saml:9000;
+    upstream revolutio_web_builder {
+      server web-builder:3000;
     }
 
-    #upstream revolutio_web_builder {
-    #  server web-builder:3000;
-    #}
+    upstream revolutio_web_builder_api {
+      server web-builder-api:5001;
+    }
 
-    #upstream revolutio_web_builder_api {
-    #  server web-builder-api:5001;
-    #}
-
-    #upstream micro_dashboard_api {
-    #  server dashboard-api:5002;
-    #}
+    upstream micro_dashboard_api {
+      server dashboard-api:5002;
+    }
 
     upstream revolutio_dashboard {
       server dashboardapp:3002;
     }
 
-    #upstream micro_datahub_api {
-    #  server datahub-api:5003;
-    #}
+    upstream micro_datahub_api {
+      server datahub-api:5003;
+    }
 
     upstream revolutio_datahub {
       server datahubapp:3003;
@@ -53,18 +49,16 @@ data:
       server kong:8002;
     }
 
-    #upstream observability_api {
-     # server observability-api:5004;
-    #}
+    upstream observability_api {
+      server observability-api:5004;
+    }
 
-    #upstream vantage_ui {
-    #  server vantage-ui:3004;
-    #}
+    upstream vantage_ui {
+      server vantage-ui:3004;
+    }
 
     server {
       listen 8080;
-
-      server_name _;
 
       location = /healthy {
         access_log off;
@@ -78,13 +72,13 @@ data:
     }
 
     server {
-      listen 443 ssl;
-
-      server_name _;
-
       if ($blockedagent) {
         return 403;
       }
+
+      listen 443 ssl;
+
+      server_name acies.cloud *.acies.cloud;
 
       ssl_certificate /etc/ssl/revolutio/ssl.crt;
       ssl_certificate_key /etc/ssl/revolutio/ssl.key;
@@ -95,7 +89,7 @@ data:
       ssl_session_cache shared:MozSSL:10m;
       ssl_session_tickets off;
 
-      ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305';
+      ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305';
 
       ssl_prefer_server_ciphers off;
 
@@ -111,11 +105,11 @@ data:
       add_header X-Frame-Options "SAMEORIGIN";
       add_header X-Content-Type-Options "nosniff";
       add_header Referrer-Policy "same-origin";
-      add_header Permissions-Policy "camera=(), geolocation=(), microphone=()";
+      add_header 'Permissions-Policy' 'camera=(), geolocation=(), microphone=()';
       add_header Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' data:; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; connect-src 'self'" always;
-      add_header Cross-Origin-Embedder-Policy "require-corp";
-      add_header Cross-Origin-Opener-Policy "same-origin";
-      add_header Cross-Origin-Resource-Policy "same-origin" always;
+      add_header 'Cross-Origin-Embedder-Policy' 'require-corp';
+      add_header 'Cross-Origin-Opener-Policy' 'same-origin';
+      add_header Cross-Origin-Resource-Policy 'same-origin' always;
 
       client_max_body_size 500M;
       client_body_buffer_size 500M;
@@ -123,6 +117,8 @@ data:
       client_body_timeout 10;
       client_header_timeout 10;
       large_client_header_buffers 2 600M;
+
+      include mime.types;
 
       types {
         application/javascript mjs;
@@ -211,6 +207,130 @@ data:
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
         proxy_set_header Host $http_host;
+      }
+
+      location /web-builder/ {
+        proxy_pass http://revolutio_web_builder;
+
+        proxy_set_header Connection keep-alive;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_hide_header X-Powered-By;
+        proxy_hide_header Server;
+
+        proxy_max_temp_file_size 0;
+      }
+
+      location /web-builder-api/ {
+        proxy_pass http://revolutio_web_builder_api;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_hide_header X-Powered-By;
+        proxy_hide_header Server;
+
+        add_header Cache-Control "no-cache, no-store";
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+
+        proxy_max_temp_file_size 0;
+      }
+
+      location /vantage/ {
+        proxy_pass http://vantage_ui;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_hide_header X-Powered-By;
+        proxy_hide_header Server;
+
+        proxy_max_temp_file_size 0;
+
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';" always;
+
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubdomains; preload" always;
+      }
+
+      location /vantage-api/ {
+        proxy_pass http://observability_api;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_hide_header X-Powered-By;
+        proxy_hide_header Server;
+
+        proxy_max_temp_file_size 0;
+
+        client_max_body_size 4M;
+
+        add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none';" always;
+        add_header X-Content-Type-Options "nosniff" always;
+
+        add_header Cache-Control "no-cache, no-store";
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+      }
+
+      location /dashboard-api/ {
+        proxy_pass http://micro_dashboard_api;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_hide_header X-Powered-By;
+        proxy_hide_header Server;
+
+        proxy_max_temp_file_size 0;
+
+        add_header Cache-Control "no-cache, no-store";
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+      }
+
+      location /datahub-api/ws/ {
+        proxy_pass http://micro_datahub_api;
+
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_read_timeout 3600s;
+        proxy_buffering off;
+      }
+
+      location /datahub-api/ {
+        proxy_pass http://micro_datahub_api;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_hide_header X-Powered-By;
+        proxy_hide_header Server;
+
+        proxy_max_temp_file_size 0;
+
+        add_header Cache-Control "no-cache, no-store";
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
       }
 
       location /dashboard/ {
