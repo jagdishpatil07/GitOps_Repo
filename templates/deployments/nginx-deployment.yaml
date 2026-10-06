@@ -32,93 +32,82 @@ spec:
 
       terminationGracePeriodSeconds: 30
 
-      ########################################################
-      # POD SECURITY
-      ########################################################
       securityContext:
-        runAsNonRoot: true
         runAsUser: 70070
+        runAsNonRoot: true
         fsGroup: 1000860000
         seccompProfile:
           type: RuntimeDefault
 
-      ########################################################
-      # VOLUMES
-      ########################################################
       volumes:
 
-        # NGINX configuration supplied by ConfigMap
+        ######################################################
+        # NGINX CONFIG
+        ######################################################
+
         - name: nginx-config
           configMap:
             name: nginx-config
             defaultMode: 0444
 
-        # Docker-compose equivalent:
-        # /etc/nginx/conf.d -> tmpfs
+        ######################################################
+        # NGINX WRITABLE RUNTIME DIRECTORIES
+        ######################################################
+
         - name: nginx-conf-d
           emptyDir:
             medium: Memory
             sizeLimit: 1Mi
 
-        # Docker-compose equivalent:
-        # /run -> tmpfs
         - name: nginx-run
           emptyDir:
             medium: Memory
             sizeLimit: 1Mi
 
-        # Docker-compose equivalent:
-        # /var/cache/nginx -> tmpfs
         - name: nginx-cache
           emptyDir:
             medium: Memory
             sizeLimit: 1Mi
 
-        # Static files
+        ######################################################
+        # APPLICATION STORAGE
+        ######################################################
+
         - name: static-storage
           persistentVolumeClaim:
             claimName: {{ .Values.nginx.pvc.static }}
 
-        # Media files
         - name: media-storage
           persistentVolumeClaim:
             claimName: {{ .Values.nginx.pvc.media }}
 
-        # Asset files
+        ######################################################
+        # ASSETS
+        ######################################################
+        # IMPORTANT:
+        # Keep this only if nginx.pvc.assets exists in values.yaml.
+        # Otherwise remove this volume and its mount.
+
         - name: assets-storage
           persistentVolumeClaim:
             claimName: {{ .Values.nginx.pvc.assets }}
 
-        # SSL certificate/key
-        - name: nginx-ssl
-          secret:
-            secretName: {{ .Values.nginx.ssl.secretName }}
-            defaultMode: 0440
-
-      ########################################################
-      # CONTAINER
-      ########################################################
       containers:
+
         - name: nginx
 
           image: "{{ .Values.nginx.image }}"
           imagePullPolicy: Always
 
-          ####################################################
-          # CONTAINER SECURITY
-          ####################################################
           securityContext:
-            runAsNonRoot: true
             runAsUser: 70070
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
 
-          ####################################################
-          # PORTS
-          ####################################################
           ports:
             - name: http
               containerPort: 8080
@@ -128,24 +117,19 @@ spec:
               containerPort: 8443
               protocol: TCP
 
-          ####################################################
-          # ENVIRONMENT
-          ####################################################
           env:
             - name: SERVER_NAME
-              value: "{{ .Values.nginx.serverName | default "_" }}"
+              value: "_"
 
-          ####################################################
-          # RESOURCES
-          ####################################################
           resources:
             limits:
               cpu: "1"
               memory: "512Mi"
 
           ####################################################
-          # NGINX COMMAND
+          # START NGINX
           ####################################################
+
           command:
             - /bin/sh
             - -c
@@ -158,24 +142,10 @@ spec:
               echo "Starting NGINX"
               echo "========================================"
 
-              echo "Preparing blockuseragents.rules..."
+              echo "NGINX version:"
+              nginx -v
 
-              if [ -f /etc/nginx/blockuseragents.rules ]; then
-                cp /etc/nginx/blockuseragents.rules \
-                   /etc/nginx/conf.d/blockuseragents.rules
-              fi
-
-              echo "Generating NGINX configuration..."
-
-              if command -v docker-gen >/dev/null 2>&1; then
-                docker-gen \
-                  -endpoint unix:///tmp/docker.sock \
-                  /etc/docker-gen/templates/nginx.tmpl \
-                  /etc/nginx/conf.d/default.conf \
-                  || true
-              fi
-
-              echo "Testing NGINX configuration..."
+              echo "Checking configuration..."
 
               nginx -t
 
@@ -184,66 +154,70 @@ spec:
               exec nginx -g 'daemon off;'
 
           ####################################################
-          # CONFIGURATION MOUNTS
+          # CONFIGURATION
           ####################################################
+
           volumeMounts:
 
-            # nginx.conf
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
               readOnly: true
 
-            # mime.types
             - name: nginx-config
               mountPath: /etc/nginx/mime.types
               subPath: mime.types
               readOnly: true
 
-            # blockuseragents.rules
-            #
-            # IMPORTANT:
-            # This is mounted outside conf.d because conf.d
-            # itself is writable emptyDir.
             - name: nginx-config
               mountPath: /etc/nginx/blockuseragents.rules
               subPath: blockuseragents.rules
               readOnly: true
 
-            # docker-gen generated configuration
+            ##################################################
+            # Writable conf.d because root filesystem is RO
+            ##################################################
+
             - name: nginx-conf-d
               mountPath: /etc/nginx/conf.d
 
-            # NGINX runtime
+            ##################################################
+            # Runtime
+            ##################################################
+
             - name: nginx-run
               mountPath: /run
 
-            # NGINX cache
             - name: nginx-cache
               mountPath: /var/cache/nginx
 
-            # Application static files
+            ##################################################
+            # Static
+            ##################################################
+
             - name: static-storage
               mountPath: /var/www/revolutio/static
               readOnly: true
 
-            # Application media
+            ##################################################
+            # Media
+            ##################################################
+
             - name: media-storage
               mountPath: /var/www/revolutio/media
 
-            # Application assets
+            ##################################################
+            # Assets
+            ##################################################
+
             - name: assets-storage
               mountPath: /var/www/asset
               readOnly: true
 
-            # SSL certificates
-            - name: nginx-ssl
-              mountPath: /etc/ssl/revolutio
-              readOnly: true
+          ####################################################
+          # PROBES
+          ####################################################
 
-          ####################################################
-          # HEALTHCHECK
-          ####################################################
           startupProbe:
             httpGet:
               path: /healthy
