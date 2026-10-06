@@ -25,41 +25,41 @@ data:
       server saml:9000;
     }
 
-    upstream revolutio_web_builder {
-      server web-builder:3000;
-    }
+    #upstream revolutio_web_builder {
+    #  server web-builder:3000;
+    #}
 
-    upstream revolutio_web_builder_api {
-      server web-builder-api:5001;
-    }
+    #upstream revolutio_web_builder_api {
+    #  server web-builder-api:5001;
+    #}
 
-    upstream micro_dashboard_api {
-      server dashboard-api:5002;
-    }
+    #upstream micro_dashboard_api {
+    #  server dashboard-api:5002;
+    #}
 
     upstream revolutio_dashboard {
       server dashboardapp:3002;
     }
 
-    upstream micro_datahub_api {
-      server datahub-api:5003;
-    }
+    #upstream micro_datahub_api {
+    #  server datahub-api:5003;
+    #}
 
     upstream revolutio_datahub {
       server datahubapp:3003;
     }
 
-    upstream micro_datahub_kong {
-      server kong:8002;
-    }
+    #upstream micro_datahub_kong {
+     # server kong:8002;
+    #}
 
-    upstream observability_api {
-      server observability-api:5004;
-    }
+    #upstream observability_api {
+     # server observability-api:5004;
+    #}
 
-    upstream vantage_ui {
-      server vantage-ui:3004;
-    }
+    #upstream vantage_ui {
+    #  server vantage-ui:3004;
+    #}
 
     server {
       listen 8080;
