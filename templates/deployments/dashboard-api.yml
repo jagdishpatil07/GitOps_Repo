@@ -29,6 +29,7 @@ spec:
 
     spec:
       restartPolicy: Always
+
       terminationGracePeriodSeconds: 30
 
       imagePullSecrets:
@@ -41,21 +42,28 @@ spec:
       containers:
         - name: dashboard-api
 
+          # ==========================================================
+          # IMAGE
+          # ==========================================================
+          #
+          # IMPORTANT:
+          # Do NOT specify command or args here.
+          #
+          # The image provides:
+          #
+          # ENTRYPOINT=/usr/local/bin/fetch-entrypoint.sh
+          # CMD=/start.sh
+          #
+          # Therefore startup becomes:
+          #
+          # fetch-entrypoint.sh /start.sh
+          #
+          # fetch-entrypoint.sh obtains secrets from OpenBao and then
+          # starts /start.sh.
+          # ==========================================================
+
           image: revolutio.azurecr.io/revolutio_kubernetes/dashboard-api:latest
           imagePullPolicy: Always
-
-          # ==========================================================
-          # BYPASS IMAGE OPENBAO FETCH WRAPPER
-          #
-          # The image ENTRYPOINT is:
-          # /usr/local/bin/fetch-entrypoint.sh
-          #
-          # This explicitly starts the application instead of allowing
-          # fetch-entrypoint.sh to wait for OpenBao.
-          # ==========================================================
-
-          command:
-            - /start.sh
 
           ports:
             - name: http
@@ -72,29 +80,23 @@ spec:
 
           env:
 
-            # ========================================================
+            # --------------------------------------------------------
             # TIMEZONE
-            # ========================================================
+            # --------------------------------------------------------
 
             - name: TZ
               value: "UTC"
 
-            # ========================================================
-            # DASHBOARD APPLICATION
-            # ========================================================
+            # --------------------------------------------------------
+            # DATAHUB
+            # --------------------------------------------------------
 
             - name: DATAHUB_API_BASE_URL
               value: "http://datahub-api:5003/datahub-api"
 
-            - name: PLATFORM_DATA_PATH
-              value: "/app/Platform_Data"
-
-            # ========================================================
-            # OPENBAO CONFIG
-            #
-            # Kept here for application compatibility, but the image
-            # fetch wrapper is NOT being executed.
-            # ========================================================
+            # --------------------------------------------------------
+            # OPENBAO
+            # --------------------------------------------------------
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -105,37 +107,94 @@ spec:
             - name: OPENBAO_ROLE_ID
               value: "dashboard-api"
 
+            # Shared OpenBao AppRole PVC:
+            #
+            # /openbao/approle-secrets/dashboard-api/secret_id
+            #
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao/approle-secrets/dashboard-api/secret_id"
+
+            # --------------------------------------------------------
+            # OPENBAO SECRET MAPPINGS
+            # --------------------------------------------------------
+            #
+            # These are the same mappings used by Docker Compose.
+            #
+            # NO passwords are stored in this Deployment.
+            # fetch-entrypoint.sh retrieves them from OpenBao.
+            #
 
             - name: OPENBAO_SECRETS
               value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin"
 
+            # --------------------------------------------------------
+            # OPENBAO URL TEMPLATES
+            # --------------------------------------------------------
+
             - name: OPENBAO_URL_TEMPLATES
               value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
 
+            # --------------------------------------------------------
+            # PLATFORM DATA
+            # --------------------------------------------------------
+
+            - name: PLATFORM_DATA_PATH
+              value: "/app/Platform_Data"
+
           # ==========================================================
-          # VOLUME MOUNTS
+          # STORAGE
           # ==========================================================
 
           volumeMounts:
 
+            # --------------------------------------------------------
+            # Media
+            # --------------------------------------------------------
+
             - name: media
               mountPath: /media
+
+            # --------------------------------------------------------
+            # Assets
+            # --------------------------------------------------------
 
             - name: assets
               mountPath: /assets
 
+            # --------------------------------------------------------
+            # Platform configuration
+            # --------------------------------------------------------
+
             - name: platform-configs
               mountPath: /app/Platform_Configs
+
+            # --------------------------------------------------------
+            # Platform data
+            # --------------------------------------------------------
 
             - name: platform-data
               mountPath: /app/Platform_Data
               readOnly: true
 
+            # --------------------------------------------------------
+            # OpenBao AppRole
+            # --------------------------------------------------------
+            #
+            # PVC:
+            # openbao-approle-shared-pvc-1
+            #
+            # Expected file:
+            #
+            # /openbao/approle-secrets/dashboard-api/secret_id
+            #
+
             - name: openbao-approle-shared
               mountPath: /openbao/approle-secrets/
               readOnly: true
+
+            # --------------------------------------------------------
+            # OpenBao TLS certificate
+            # --------------------------------------------------------
 
             - name: shared-certs
               mountPath: /openbao-certs
@@ -192,31 +251,62 @@ spec:
               cpu: "2"
               memory: "4Gi"
 
-      # ==============================================================
+      # ============================================================
       # VOLUMES
-      # ==============================================================
+      # ============================================================
 
       volumes:
+
+        # ------------------------------------------------------------
+        # Media
+        # ------------------------------------------------------------
 
         - name: media
           persistentVolumeClaim:
             claimName: media-pvc-1
 
+        # ------------------------------------------------------------
+        # Assets
+        # ------------------------------------------------------------
+
         - name: assets
           persistentVolumeClaim:
             claimName: assets-pvc-1
+
+        # ------------------------------------------------------------
+        # Platform configuration
+        # ------------------------------------------------------------
 
         - name: platform-configs
           persistentVolumeClaim:
             claimName: platform-configs-pvc-1
 
+        # ------------------------------------------------------------
+        # Platform data
+        # ------------------------------------------------------------
+
         - name: platform-data
           persistentVolumeClaim:
             claimName: platform-data-pvc-1
 
+        # ------------------------------------------------------------
+        # Shared OpenBao AppRole
+        # ------------------------------------------------------------
+        #
+        # Expected NFS structure:
+        #
+        # /data/nfs/openbao-approle-shared/
+        # └── dashboard-api/
+        #     └── secret_id
+        #
+
         - name: openbao-approle-shared
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
+
+        # ------------------------------------------------------------
+        # Shared OpenBao TLS
+        # ------------------------------------------------------------
 
         - name: shared-certs
           persistentVolumeClaim:
