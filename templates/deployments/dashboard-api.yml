@@ -1,5 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: dashboard-api-compose-test
   namespace: myapp
@@ -33,15 +34,14 @@ spec:
           image: revolutio.azurecr.io/revolutio_kubernetes/dashboard-api:latest
           imagePullPolicy: Always
 
-          # Same as Docker Compose:
-          #
+          # Docker Compose:
           # command:
           #   - /start.sh
           #
-          # The image ENTRYPOINT remains:
+          # Image ENTRYPOINT remains:
           # /usr/local/bin/fetch-entrypoint.sh
           #
-          # Therefore the effective startup is:
+          # Effective:
           # fetch-entrypoint.sh /start.sh
           command:
             - /start.sh
@@ -52,13 +52,9 @@ spec:
               protocol: TCP
 
           # ==========================================================
-          # DOCKER COMPOSE environment:
+          # Docker Compose env_file: .env
           #
-          # env_file:
-          #   - .env
-          #
-          # Kubernetes equivalent:
-          # envFrom -> envs-production-web
+          # Kubernetes equivalent.
           # ==========================================================
 
           envFrom:
@@ -66,7 +62,7 @@ spec:
                 name: envs-production-web
 
           # ==========================================================
-          # Same explicit Docker Compose environment
+          # Explicit Docker Compose environment
           # ==========================================================
 
           env:
@@ -86,6 +82,7 @@ spec:
             - name: OPENBAO_ROLE_ID
               value: "dashboard-api"
 
+            # EXACT Docker Compose path
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao-approle/secret_id"
 
@@ -99,13 +96,7 @@ spec:
               value: "/app/Platform_Data"
 
           # ==========================================================
-          # Docker Compose:
-          #
-          # deploy:
-          #   resources:
-          #     limits:
-          #       cpus: '2'
-          #       memory: 4G
+          # Same Docker Compose resource limits
           # ==========================================================
 
           resources:
@@ -114,13 +105,14 @@ spec:
               memory: "4Gi"
 
           # ==========================================================
-          # NO Kubernetes probes for this comparison test.
+          # NO probes for this comparison deployment.
           #
-          # Docker Compose does not define these for dashboard-api.
+          # Docker Compose dashboard-api does not define probes.
           # ==========================================================
 
           # ==========================================================
-          # VOLUMES - same logical mounts as Docker Compose
+          # VOLUME MOUNTS
+          # Exactly the volumes used by Docker Compose.
           # ==========================================================
 
           volumeMounts:
@@ -148,12 +140,7 @@ spec:
               readOnly: true
 
             # Docker:
-            # openbao-approle-dashboard-api
-            # -> /openbao-approle
-            #
-            # IMPORTANT:
-            # This is intentionally mounted at exactly the same path
-            # used by Docker Compose.
+            # openbao-approle-dashboard-api -> /openbao-approle
             - name: openbao-approle-dashboard-api
               mountPath: /openbao-approle
               readOnly: true
@@ -170,40 +157,48 @@ spec:
 
       volumes:
 
+        # Docker:
+        # media -> /media
         - name: media
           persistentVolumeClaim:
             claimName: media-pvc-1
 
+        # Docker:
+        # assets -> /assets
         - name: assets
           persistentVolumeClaim:
             claimName: assets-pvc-1
 
+        # Docker:
+        # Platform_Configs -> /app/Platform_Configs
         - name: platform-configs
           persistentVolumeClaim:
             claimName: platform-configs-pvc-1
 
+        # Docker:
+        # Platform_Data -> /app/Platform_Data
         - name: platform-data
           persistentVolumeClaim:
             claimName: platform-data-pvc-1
 
         # ==========================================================
-        # IMPORTANT:
-        #
         # Docker:
-        #   openbao-approle-dashboard-api
-        #       -> /openbao-approle
         #
-        # Your existing K8s shared PVC contains:
+        # openbao-approle-dashboard-api:
+        #   -> /openbao-approle
         #
-        # /data/nfs/openbao-approle-shared/dashboard-api/secret_id
+        # K8s shared PVC:
+        # openbao-approle-shared-pvc-1
         #
-        # Therefore mount ONLY the dashboard-api subdirectory here.
+        # Mount only dashboard-api subdirectory.
         # ==========================================================
 
         - name: openbao-approle-dashboard-api
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
 
+        # Docker:
+        # shared-certs -> /openbao-certs
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
@@ -211,6 +206,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
+
 metadata:
   name: dashboard-api-compose-test
   namespace: myapp
