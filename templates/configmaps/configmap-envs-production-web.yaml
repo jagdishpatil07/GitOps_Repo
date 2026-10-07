@@ -24,7 +24,7 @@ data:
 
   ACCOUNT_DEFAULT_HTTP_PROTOCOL: "https"
 
-  PLATFORM_DOMAIN_NAME: "acies.digital"
+  PLATFORM_DOMAIN_NAME: "4.240.124.84:30007""
 
   KUBERNETES_ENV: "true"
 
@@ -101,7 +101,7 @@ data:
   # CORS / Server
   # ============================================================
 
-  CORS_ALLOWED_ORIGIN_REGEXES: '^https://\w+\.4.240.124.84\.4.240.124.84:30007$'
+  CORS_ALLOWED_ORIGIN_REGEXES: '^https?://4\.240\.124\.84:30007$'
 
   SERVER_NAME: "4.240.124.84 *.4.240.124.84/"
 
