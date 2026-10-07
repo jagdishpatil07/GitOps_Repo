@@ -101,9 +101,9 @@ data:
   # CORS / Server
   # ============================================================
 
-  CORS_ALLOWED_ORIGIN_REGEXES: '^https://\w+\.acies\.digital$'
+  CORS_ALLOWED_ORIGIN_REGEXES: '^https://\w+\.4.240.124.84\.4.240.124.84:30007$'
 
-  SERVER_NAME: "acies.digital *.acies.digital"
+  SERVER_NAME: "4.240.124.84 *.4.240.124.84/"
 
 
   # ============================================================
