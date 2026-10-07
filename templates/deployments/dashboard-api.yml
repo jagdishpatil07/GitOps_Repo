@@ -1,78 +1,81 @@
 apiVersion: apps/v1
 kind: Deployment
-
 metadata:
-  name: dashboard-api
+  name: dashboard-api-compose-test
   namespace: myapp
   labels:
-    app: dashboard-api
+    app: dashboard-api-compose-test
 
 spec:
   replicas: 1
 
-  revisionHistoryLimit: 5
-
   selector:
     matchLabels:
-      app: dashboard-api
+      app: dashboard-api-compose-test
 
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+    type: Recreate
 
   template:
     metadata:
       labels:
-        app: dashboard-api
+        app: dashboard-api-compose-test
 
     spec:
       restartPolicy: Always
-      terminationGracePeriodSeconds: 30
 
       imagePullSecrets:
         - name: acr-secret
 
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
-
       containers:
         - name: dashboard-api
 
-          # ==========================================================
-          # IMAGE
-          #
-          # Do NOT override command/args.
-          #
-          # Image:
-          # ENTRYPOINT = /usr/local/bin/fetch-entrypoint.sh
-          # CMD        = /start.sh
-          #
-          # OpenBao fetch wrapper must execute first.
-          # ==========================================================
-
           image: revolutio.azurecr.io/revolutio_kubernetes/dashboard-api:latest
           imagePullPolicy: Always
+
+          # Same as Docker Compose:
+          #
+          # command:
+          #   - /start.sh
+          #
+          # The image ENTRYPOINT remains:
+          # /usr/local/bin/fetch-entrypoint.sh
+          #
+          # Therefore the effective startup is:
+          # fetch-entrypoint.sh /start.sh
+          command:
+            - /start.sh
 
           ports:
             - name: http
               containerPort: 5002
               protocol: TCP
 
-          env:
+          # ==========================================================
+          # DOCKER COMPOSE environment:
+          #
+          # env_file:
+          #   - .env
+          #
+          # Kubernetes equivalent:
+          # envFrom -> envs-production-web
+          # ==========================================================
 
-            # ========================================================
-            # TIMEZONE
-            # ========================================================
+          envFrom:
+            - configMapRef:
+                name: envs-production-web
+
+          # ==========================================================
+          # Same explicit Docker Compose environment
+          # ==========================================================
+
+          env:
 
             - name: TZ
               value: "UTC"
 
-            # ========================================================
-            # OPENBAO
-            # ========================================================
+            - name: DATAHUB_API_BASE_URL
+              value: "http://datahub-api:5003/datahub-api"
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -83,218 +86,145 @@ spec:
             - name: OPENBAO_ROLE_ID
               value: "dashboard-api"
 
-            # Shared AppRole PVC:
-            #
-            # /openbao-approle/
-            #   dashboard-api/
-            #     secret_id
-            #
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/dashboard-api/secret_id"
-
-            # ========================================================
-            # OPENBAO SECRETS
-            # ========================================================
-            #
-            # These values are fetched at container startup.
-            # No passwords are stored in this Deployment.
-            #
+              value: "/openbao-approle/secret_id"
 
             - name: OPENBAO_SECRETS
               value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin"
 
-            # ========================================================
-            # OPENBAO URL TEMPLATES
-            # ========================================================
-
             - name: OPENBAO_URL_TEMPLATES
               value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
-
-            # ========================================================
-            # APPLICATION
-            # ========================================================
 
             - name: PLATFORM_DATA_PATH
               value: "/app/Platform_Data"
 
           # ==========================================================
-          # APPLICATION CONFIG
-          # ==========================================================
-
-          envFrom:
-            - configMapRef:
-                name: envs-production-web
-
-          # ==========================================================
-          # VOLUMES
-          # ==========================================================
-
-          volumeMounts:
-
-            # --------------------------------------------------------
-            # Application storage
-            # --------------------------------------------------------
-
-            - name: media
-              mountPath: /media
-
-            - name: assets
-              mountPath: /assets
-
-            - name: platform-configs
-              mountPath: /app/Platform_Configs
-
-            - name: platform-data
-              mountPath: /app/Platform_Data
-              readOnly: true
-
-            # --------------------------------------------------------
-            # OpenBao AppRole
-            #
-            # PVC:
-            # openbao-approle-shared-pvc-1
-            #
-            # NFS:
-            # /data/nfs/openbao-approle-shared/dashboard-api/secret_id
-            #
-            # Container:
-            # /openbao-approle/secret_id
-            # --------------------------------------------------------
-
-            - name: openbao-approle-shared
-              mountPath: /openbao/approle-secrets/
-              readOnly: true
-
-            # --------------------------------------------------------
-            # OpenBao TLS CA
-            # --------------------------------------------------------
-
-            - name: shared-certs
-              mountPath: /openbao-certs
-              readOnly: true
-
-          # ==========================================================
-          # STARTUP PROBE
-          # ==========================================================
+          # Docker Compose:
           #
-          # Allows up to 5 minutes for application startup.
-          #
-
-          startupProbe:
-            tcpSocket:
-              port: http
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 30
-            successThreshold: 1
-
-          # ==========================================================
-          # READINESS PROBE
-          # ==========================================================
-          #
-          # Pod receives traffic only after API listens on 5002.
-          #
-
-          readinessProbe:
-            tcpSocket:
-              port: http
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 6
-            successThreshold: 1
-
-          # ==========================================================
-          # LIVENESS PROBE
-          # ==========================================================
-          #
-          # Restart container if API stops listening.
-          #
-
-          livenessProbe:
-            tcpSocket:
-              port: http
-            initialDelaySeconds: 60
-            periodSeconds: 20
-            timeoutSeconds: 5
-            failureThreshold: 3
-            successThreshold: 1
-
-          # ==========================================================
-          # RESOURCES
+          # deploy:
+          #   resources:
+          #     limits:
+          #       cpus: '2'
+          #       memory: 4G
           # ==========================================================
 
           resources:
-            requests:
-              cpu: "1"
-              memory: "2Gi"
-
             limits:
               cpu: "2"
               memory: "4Gi"
 
-      # ==============================================================
+          # ==========================================================
+          # NO Kubernetes probes for this comparison test.
+          #
+          # Docker Compose does not define these for dashboard-api.
+          # ==========================================================
+
+          # ==========================================================
+          # VOLUMES - same logical mounts as Docker Compose
+          # ==========================================================
+
+          volumeMounts:
+
+            # Docker:
+            # media -> /media
+            - name: media
+              mountPath: /media
+
+            # Docker:
+            # assets -> /assets
+            - name: assets
+              mountPath: /assets
+
+            # Docker:
+            # Platform_Configs -> /app/Platform_Configs
+            - name: platform-configs
+              mountPath: /app/Platform_Configs
+
+            # Docker:
+            # Platform_Data -> /app/Platform_Data
+            # read_only: true
+            - name: platform-data
+              mountPath: /app/Platform_Data
+              readOnly: true
+
+            # Docker:
+            # openbao-approle-dashboard-api
+            # -> /openbao-approle
+            #
+            # IMPORTANT:
+            # This is intentionally mounted at exactly the same path
+            # used by Docker Compose.
+            - name: openbao-approle-dashboard-api
+              mountPath: /openbao-approle
+              readOnly: true
+
+            # Docker:
+            # shared-certs -> /openbao-certs
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+      # ============================================================
       # VOLUMES
-      # ==============================================================
+      # ============================================================
 
       volumes:
-
-        # ------------------------------------------------------------
-        # Application media
-        # ------------------------------------------------------------
 
         - name: media
           persistentVolumeClaim:
             claimName: media-pvc-1
 
-        # ------------------------------------------------------------
-        # Application assets
-        # ------------------------------------------------------------
-
         - name: assets
           persistentVolumeClaim:
             claimName: assets-pvc-1
-
-        # ------------------------------------------------------------
-        # Platform configuration
-        # ------------------------------------------------------------
 
         - name: platform-configs
           persistentVolumeClaim:
             claimName: platform-configs-pvc-1
 
-        # ------------------------------------------------------------
-        # Platform data
-        # ------------------------------------------------------------
-
         - name: platform-data
           persistentVolumeClaim:
             claimName: platform-data-pvc-1
 
-        # ------------------------------------------------------------
-        # Shared OpenBao AppRole PVC
-        # ------------------------------------------------------------
+        # ==========================================================
+        # IMPORTANT:
         #
-        # NFS:
-        # /data/nfs/openbao-approle-shared/
+        # Docker:
+        #   openbao-approle-dashboard-api
+        #       -> /openbao-approle
         #
-        # This Deployment uses:
+        # Your existing K8s shared PVC contains:
+        #
         # /data/nfs/openbao-approle-shared/dashboard-api/secret_id
         #
-        # because of:
-        # subPath: dashboard-api
-        #
+        # Therefore mount ONLY the dashboard-api subdirectory here.
+        # ==========================================================
 
-        - name: openbao-approle-shared
+        - name: openbao-approle-dashboard-api
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
-
-        # ------------------------------------------------------------
-        # Shared OpenBao TLS certificate
-        # ------------------------------------------------------------
 
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
 
-      dnsPolicy: ClusterFirst
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-api-compose-test
+  namespace: myapp
+  labels:
+    app: dashboard-api-compose-test
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: dashboard-api-compose-test
+
+  ports:
+    - name: http
+      port: 5002
+      targetPort: 5002
+      protocol: TCP
