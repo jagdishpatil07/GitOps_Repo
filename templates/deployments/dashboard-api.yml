@@ -28,30 +28,13 @@ spec:
         app: dashboard-api
 
     spec:
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 30
-
       imagePullSecrets:
         - name: acr-secret
 
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
 
       containers:
         - name: dashboard-api
-
-          # ==========================================================
-          # IMAGE
-          #
-          # Do NOT override command/args.
-          #
-          # Image:
-          # ENTRYPOINT = /usr/local/bin/fetch-entrypoint.sh
-          # CMD        = /start.sh
-          #
-          # OpenBao fetch wrapper must execute first.
-          # ==========================================================
 
           image: revolutio.azurecr.io/revolutio_kubernetes/dashboard-api:latest
           imagePullPolicy: Always
@@ -62,17 +45,20 @@ spec:
               protocol: TCP
 
           # ==========================================================
-          # OPENBAO + APPLICATION ENVIRONMENT
+          # APPLICATION CONFIG
           # ==========================================================
 
-          env:
+          envFrom:
+            - configMapRef:
+                name: envs-production-web
 
+          env:
             - name: TZ
               value: "UTC"
 
-            # --------------------------------------------------------
-            # OpenBao
-            # --------------------------------------------------------
+            # ========================================================
+            # OPENBAO
+            # ========================================================
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -92,20 +78,15 @@ spec:
             - name: OPENBAO_URL_TEMPLATES
               value: "RABBITMQ_URL=amqp://guest:$${RABBITMQ_PASSWORD}@rabbitmq:5672/,REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
 
-            # --------------------------------------------------------
-            # Application
-            # --------------------------------------------------------
+            # ========================================================
+            # DASHBOARD APPLICATION
+            # ========================================================
+
+            - name: DATAHUB_API_BASE_URL
+              value: "http://datahub-api:5003/datahub-api"
 
             - name: PLATFORM_DATA_PATH
               value: "/app/Platform_Data"
-
-          # ==========================================================
-          # APPLICATION CONFIG
-          # ==========================================================
-
-          envFrom:
-            - configMapRef:
-                name: envs-production-web
 
           # ==========================================================
           # VOLUME MOUNTS
@@ -114,14 +95,24 @@ spec:
           volumeMounts:
 
             # --------------------------------------------------------
-            # Application storage
+            # OpenBao AppRole
             # --------------------------------------------------------
 
-            - name: media
-              mountPath: /media
+            - name: openbao-approle-shared
+              mountPath: /openbao/approle-secrets/
+              readOnly: true
 
-            - name: assets
-              mountPath: /assets
+            # --------------------------------------------------------
+            # OpenBao TLS
+            # --------------------------------------------------------
+
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+            # --------------------------------------------------------
+            # Application storage
+            # --------------------------------------------------------
 
             - name: platform-configs
               mountPath: /app/Platform_Configs
@@ -130,77 +121,46 @@ spec:
               mountPath: /app/Platform_Data
               readOnly: true
 
-            # --------------------------------------------------------
-            # OpenBao AppRole
-            #
-            # PVC:
-            # openbao-approle-shared-pvc-1
-            #
-            # NFS:
-            # /data/nfs/openbao-approle-shared/dashboard-api/secret_id
-            #
-            # Container:
-            # /openbao/approle-secrets/dashboard-api/secret_id
-            # --------------------------------------------------------
+            - name: media
+              mountPath: /media
 
-            - name: openbao-approle-shared
-              mountPath: /openbao/approle-secrets/
-              readOnly: true
-
-            # --------------------------------------------------------
-            # OpenBao TLS CA
-            # --------------------------------------------------------
-
-            - name: shared-certs
-              mountPath: /openbao-certs
-              readOnly: true
+            - name: assets
+              mountPath: /assets
 
           # ==========================================================
           # STARTUP PROBE
           # ==========================================================
-          #
-          # Allows up to 5 minutes for application startup.
-          #
 
           startupProbe:
             tcpSocket:
-              port: http
+              port: 5002
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 30
-            successThreshold: 1
 
           # ==========================================================
           # READINESS PROBE
           # ==========================================================
-          #
-          # Pod receives traffic only after API listens on 5002.
-          #
 
           readinessProbe:
             tcpSocket:
-              port: http
-            initialDelaySeconds: 30
+              port: 5002
+            initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 6
-            successThreshold: 1
+            failureThreshold: 3
 
           # ==========================================================
           # LIVENESS PROBE
           # ==========================================================
-          #
-          # Restart container if API stops listening.
-          #
 
           livenessProbe:
             tcpSocket:
-              port: http
+              port: 5002
             initialDelaySeconds: 60
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
-            successThreshold: 1
 
           # ==========================================================
           # RESOURCES
@@ -222,20 +182,20 @@ spec:
       volumes:
 
         # ------------------------------------------------------------
-        # Application media
+        # Shared OpenBao AppRole
         # ------------------------------------------------------------
 
-        - name: media
+        - name: openbao-approle-shared
           persistentVolumeClaim:
-            claimName: media-pvc-1
+            claimName: openbao-approle-shared-pvc-1
 
         # ------------------------------------------------------------
-        # Application assets
+        # Shared OpenBao TLS certificate
         # ------------------------------------------------------------
 
-        - name: assets
+        - name: shared-certs
           persistentVolumeClaim:
-            claimName: assets-pvc-1
+            claimName: shared-certs-pvc-1
 
         # ------------------------------------------------------------
         # Platform configuration
@@ -254,26 +214,21 @@ spec:
             claimName: platform-data-pvc-1
 
         # ------------------------------------------------------------
-        # Shared OpenBao AppRole PVC
+        # Media
         # ------------------------------------------------------------
-        #
-        # NFS:
-        # /data/nfs/openbao-approle-shared/
-        #
-        # Container:
-        # /openbao/approle-secrets/dashboard-api/secret_id
-        #
 
-        - name: openbao-approle-shared
+        - name: media
           persistentVolumeClaim:
-            claimName: openbao-approle-shared-pvc-1
+            claimName: media-pvc-1
 
         # ------------------------------------------------------------
-        # Shared OpenBao TLS certificate
+        # Assets
         # ------------------------------------------------------------
 
-        - name: shared-certs
+        - name: assets
           persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
+            claimName: assets-pvc-1
+
+      restartPolicy: Always
 
       dnsPolicy: ClusterFirst
