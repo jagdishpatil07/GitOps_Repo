@@ -61,18 +61,18 @@ spec:
               containerPort: 5002
               protocol: TCP
 
-          env:
+          # ==========================================================
+          # OPENBAO + APPLICATION ENVIRONMENT
+          # ==========================================================
 
-            # ========================================================
-            # TIMEZONE
-            # ========================================================
+          env:
 
             - name: TZ
               value: "UTC"
 
-            # ========================================================
-            # OPENBAO
-            # ========================================================
+            # --------------------------------------------------------
+            # OpenBao
+            # --------------------------------------------------------
 
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
@@ -83,36 +83,18 @@ spec:
             - name: OPENBAO_ROLE_ID
               value: "dashboard-api"
 
-            # Shared AppRole PVC:
-            #
-            # /openbao-approle/
-            #   dashboard-api/
-            #     secret_id
-            #
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao/approle-secrets/dashboard-api/secret_id"
 
-            # ========================================================
-            # OPENBAO SECRETS
-            # ========================================================
-            #
-            # These values are fetched at container startup.
-            # No passwords are stored in this Deployment.
-            #
-
             - name: OPENBAO_SECRETS
-              value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin"
-
-            # ========================================================
-            # OPENBAO URL TEMPLATES
-            # ========================================================
+              value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,POSTGRES_PASSWORD=postgres-core/platform_app,RABBITMQ_PASSWORD=rabbitmq/admin,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key"
 
             - name: OPENBAO_URL_TEMPLATES
-              value: "REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
+              value: "RABBITMQ_URL=amqp://guest:$${RABBITMQ_PASSWORD}@rabbitmq:5672/,REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
 
-            # ========================================================
-            # APPLICATION
-            # ========================================================
+            # --------------------------------------------------------
+            # Application
+            # --------------------------------------------------------
 
             - name: PLATFORM_DATA_PATH
               value: "/app/Platform_Data"
@@ -126,7 +108,7 @@ spec:
                 name: envs-production-web
 
           # ==========================================================
-          # VOLUMES
+          # VOLUME MOUNTS
           # ==========================================================
 
           volumeMounts:
@@ -158,7 +140,7 @@ spec:
             # /data/nfs/openbao-approle-shared/dashboard-api/secret_id
             #
             # Container:
-            # /openbao-approle/secret_id
+            # /openbao/approle-secrets/dashboard-api/secret_id
             # --------------------------------------------------------
 
             - name: openbao-approle-shared
@@ -278,11 +260,8 @@ spec:
         # NFS:
         # /data/nfs/openbao-approle-shared/
         #
-        # This Deployment uses:
-        # /data/nfs/openbao-approle-shared/dashboard-api/secret_id
-        #
-        # because of:
-        # subPath: dashboard-api
+        # Container:
+        # /openbao/approle-secrets/dashboard-api/secret_id
         #
 
         - name: openbao-approle-shared
