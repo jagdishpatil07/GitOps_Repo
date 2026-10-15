@@ -125,7 +125,8 @@ spec:
             #
 
             - name: OPENBAO_SECRETS
-              value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin"
+              value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin,SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret"
+
 
             # --------------------------------------------------------
             # OPENBAO URL TEMPLATES
