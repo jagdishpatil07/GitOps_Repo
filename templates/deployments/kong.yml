@@ -102,7 +102,7 @@ spec:
               value: "kong"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/kong/secret_id"
+              value: "/openbao-approle/secret_id"
 
             - name: OPENBAO_SECRETS
               value: "REDIS_PASSWORD=cache/redis"
@@ -146,7 +146,8 @@ spec:
 
           volumeMounts:
             - name: openbao-approle-shared
-              mountPath: /openbao/approle-secrets/
+              mountPath: /openbao-approle
+              subPath: kong
               readOnly: true
 
             - name: shared-certs
