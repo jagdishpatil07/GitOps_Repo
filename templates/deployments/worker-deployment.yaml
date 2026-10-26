@@ -165,7 +165,7 @@ spec:
               value: "revolutio-app"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/revolutio-app/secret_id"
+              value: "/openbao-approle/secret_id"
 
             - name: OPENBAO_SECRETS
               value: >-
@@ -232,7 +232,8 @@ spec:
             # ========================================================
 
             - name: openbao-approle-shared
-              mountPath: /openbao/approle-secrets/
+              mountPath: /openbao-approle
+              subPath: revolutio-app
               readOnly: true
 
             - name: shared-certs
