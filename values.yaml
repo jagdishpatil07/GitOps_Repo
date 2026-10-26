@@ -95,7 +95,7 @@ rqscheduler:
 # ============================================================
 web:
   replicaCount: 1
-  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:latest
+  image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:bodv1
   configMaps:
     web: envs-production-web
     postgres: envs-production-postgres-core
