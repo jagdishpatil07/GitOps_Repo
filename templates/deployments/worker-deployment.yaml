@@ -1,3 +1,4 @@
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -95,32 +96,44 @@ spec:
           env:
             - name: TZ
               value: "UTC"
+
             - name: MALLOC_ARENA_MAX
               value: "2"
+
             - name: OPENBLAS_NUM_THREADS
               value: "1"
+
             - name: MKL_NUM_THREADS
               value: "1"
+
             - name: NUMEXPR_NUM_THREADS
               value: "1"
+
             - name: OMP_NUM_THREADS
               value: "1"
+
             - name: XDG_CACHE_HOME
               value: "/opt/temp"
+
             - name: WORKER_FORK_PER_JOB
               value: "0"
+
             - name: WORKER_PROCESSES
               value: "2"
 
             # OpenBao
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
+
             - name: OPENBAO_CACERT
               value: "/openbao-certs/tls.crt"
+
             - name: OPENBAO_ROLE_ID
               value: "revolutio-app"
+
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao-approle/secret_id"
+
             - name: OPENBAO_SECRETS
               value: >-
                 SECRET_KEY=django/secret_key,
@@ -130,6 +143,7 @@ spec:
                 REDIS_PASSWORD=cache/redis,
                 KEYDB_PASSWORD=cache/keydb,
                 POSTGRES_PASSWORD=postgres-core/platform_app
+
             - name: OPENBAO_URL_TEMPLATES
               value: >-
                 REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
@@ -140,23 +154,37 @@ spec:
             - name: DATABASE_URL
               value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
 
-            # MinIO / S3-compatible test configuration
+            # MinIO test credentials
+            # Replace these values with the credentials configured in MinIO.
+            - name: AWS_ACCESS_KEY_ID
+              value: "YOUR_MINIO_ACCESS_KEY"
+
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "YOUR_MINIO_SECRET_KEY"
+
+            # MinIO S3 endpoint and media bucket
             - name: AWS_S3_ENDPOINT_URL
               value: "http://minio-native.mini-app.svc.cluster.local:9000"
+
             - name: AWS_STORAGE_BUCKET_NAME
               value: "worker-media-pvc-test"
+
             - name: AWS_S3_REGION_NAME
               value: "us-east-1"
+
             - name: AWS_S3_ADDRESSING_STYLE
               value: "path"
+
             - name: AWS_DEFAULT_ACL
               value: "private"
+
             - name: AWS_QUERYSTRING_AUTH
               value: "true"
 
           envFrom:
             - configMapRef:
                 name: {{ .Values.worker.configMaps.web }}
+
             - configMapRef:
                 name: {{ .Values.worker.configMaps.postgres }}
 
@@ -171,25 +199,34 @@ spec:
           volumeMounts:
             - name: static-storage
               mountPath: /opt/revolutio/static
+
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
+
             - name: templates-storage
               mountPath: /opt/revolutio/Core/templates/user_defined_template
+
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
+
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
+
             - name: openbao-approle-shared
               mountPath: /openbao-approle
               subPath: revolutio-app
               readOnly: true
+
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
+
             - name: opt-temp
               mountPath: /opt/temp
+
             - name: app-logs
               mountPath: /opt/revolutio/logs
+
             - name: tmp
               mountPath: /tmp
 
@@ -222,4 +259,4 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 30
             failureThreshold: 5
-
+```
