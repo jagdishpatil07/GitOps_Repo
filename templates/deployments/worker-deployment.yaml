@@ -1,34 +1,25 @@
+```yaml
 apiVersion: apps/v1
 kind: Deployment
-
 metadata:
-  name: worker
+  name: worker-minio-test
   namespace: {{ .Values.namespace }}
   labels:
-    service: worker
-
+    service: worker-minio-test
 spec:
-  replicas: {{ .Values.worker.replicaCount }}
-
+  replicas: 1
   selector:
     matchLabels:
-      service: worker
-
+      service: worker-minio-test
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
-
-  revisionHistoryLimit: 10
-
+    type: Recreate
+  revisionHistoryLimit: 2
   progressDeadlineSeconds: 600
 
   template:
     metadata:
       labels:
-        service: worker
-
+        service: worker-minio-test
     spec:
       restartPolicy: Always
 
@@ -43,11 +34,6 @@ spec:
         fsGroup: 70070
 
       volumes:
-
-        # ==========================================================
-        # Application storage
-        # ==========================================================
-
         - name: static-storage
           persistentVolumeClaim:
             claimName: {{ .Values.worker.pvc.static }}
@@ -68,10 +54,6 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.worker.pvc.computation }}
 
-        # ==========================================================
-        # OpenBao
-        # ==========================================================
-
         - name: openbao-approle-shared
           persistentVolumeClaim:
             claimName: openbao-approle-shared-pvc-1
@@ -79,10 +61,6 @@ spec:
         - name: shared-certs
           persistentVolumeClaim:
             claimName: shared-certs-pvc-1
-
-        # ==========================================================
-        # Docker tmpfs equivalents
-        # ==========================================================
 
         - name: opt-temp
           emptyDir:
@@ -100,12 +78,9 @@ spec:
             sizeLimit: 1000Mi
 
       containers:
-
         - name: rqworker
-
           image: {{ .Values.worker.image }}
           imagePullPolicy: Always
-
           args:
             - /rqworker/start
 
@@ -119,54 +94,34 @@ spec:
                 - ALL
 
           env:
-
-            # ========================================================
-            # General
-            # ========================================================
-
             - name: TZ
               value: "UTC"
-
             - name: MALLOC_ARENA_MAX
               value: "2"
-
             - name: OPENBLAS_NUM_THREADS
               value: "1"
-
             - name: MKL_NUM_THREADS
               value: "1"
-
             - name: NUMEXPR_NUM_THREADS
               value: "1"
-
             - name: OMP_NUM_THREADS
               value: "1"
-
             - name: XDG_CACHE_HOME
               value: "/opt/temp"
-
             - name: WORKER_FORK_PER_JOB
               value: "0"
-
             - name: WORKER_PROCESSES
               value: "2"
 
-            # ========================================================
             # OpenBao
-            # ========================================================
-
             - name: OPENBAO_ADDR
               value: "https://openbao:8200"
-
             - name: OPENBAO_CACERT
               value: "/openbao-certs/tls.crt"
-
             - name: OPENBAO_ROLE_ID
               value: "revolutio-app"
-
             - name: OPENBAO_SECRET_ID_FILE
               value: "/openbao-approle/secret_id"
-
             - name: OPENBAO_SECRETS
               value: >-
                 SECRET_KEY=django/secret_key,
@@ -176,24 +131,33 @@ spec:
                 REDIS_PASSWORD=cache/redis,
                 KEYDB_PASSWORD=cache/keydb,
                 POSTGRES_PASSWORD=postgres-core/platform_app
-
             - name: OPENBAO_URL_TEMPLATES
               value: >-
                 REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0,
                 REDIS_URL_SCHEDULER=redis://:$${REDIS_PASSWORD}@redis:6379/1,
                 REDIS_CACHE_LOCATION=redis://:$${KEYDB_PASSWORD}@keydb:6379
 
-            # ========================================================
             # Database
-            # ========================================================
-
             - name: DATABASE_URL
               value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
+
+            # MinIO / S3-compatible test configuration
+            - name: AWS_S3_ENDPOINT_URL
+              value: "http://minio-native.mini-app.svc.cluster.local:9000"
+            - name: AWS_STORAGE_BUCKET_NAME
+              value: "worker-media-pvc-test"
+            - name: AWS_S3_REGION_NAME
+              value: "us-east-1"
+            - name: AWS_S3_ADDRESSING_STYLE
+              value: "path"
+            - name: AWS_DEFAULT_ACL
+              value: "private"
+            - name: AWS_QUERYSTRING_AUTH
+              value: "true"
 
           envFrom:
             - configMapRef:
                 name: {{ .Values.worker.configMaps.web }}
-
             - configMapRef:
                 name: {{ .Values.worker.configMaps.postgres }}
 
@@ -201,61 +165,34 @@ spec:
             requests:
               cpu: {{ .Values.worker.resources.requests.cpu | quote }}
               memory: {{ .Values.worker.resources.requests.memory | quote }}
-
             limits:
               cpu: {{ .Values.worker.resources.limits.cpu | quote }}
               memory: {{ .Values.worker.resources.limits.memory | quote }}
 
           volumeMounts:
-
-            # ========================================================
-            # Application storage
-            # ========================================================
-
             - name: static-storage
               mountPath: /opt/revolutio/static
-
             - name: platformconfig-storage
               mountPath: /opt/revolutio/Platform_Configs
-
             - name: templates-storage
               mountPath: /opt/revolutio/Core/templates/user_defined_template
-
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
-
             - name: media-storage
               mountPath: /opt/revolutio/Core/media
-
-            # ========================================================
-            # OpenBao
-            # ========================================================
-
             - name: openbao-approle-shared
               mountPath: /openbao-approle
               subPath: revolutio-app
               readOnly: true
-
             - name: shared-certs
               mountPath: /openbao-certs
               readOnly: true
-
-            # ========================================================
-            # Docker tmpfs equivalents
-            # ========================================================
-
             - name: opt-temp
               mountPath: /opt/temp
-
             - name: app-logs
               mountPath: /opt/revolutio/logs
-
             - name: tmp
               mountPath: /tmp
-
-          # ==========================================================
-          # Health checks
-          # ==========================================================
 
           startupProbe:
             exec:
@@ -286,3 +223,4 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 30
             failureThreshold: 5
+```
