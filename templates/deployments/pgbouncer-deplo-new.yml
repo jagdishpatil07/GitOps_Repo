@@ -124,7 +124,7 @@ spec:
               value: "pgbouncer1-new"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao/approle-secrets/pgbouncer1-new/secret_id"
+              value: "/openbao-approle/secret_id"
 
             - name: OPENBAO_SECRETS
               value: "DB_PASSWORD=postgres-core/platform_app"
@@ -143,7 +143,8 @@ spec:
             # ======================================================
 
             - name: openbao-approle-shared
-              mountPath: /openbao/approle-secrets/
+              mountPath: /openbao-approle
+              subPath: pgbouncer1-new
               readOnly: true
 
             # ======================================================
