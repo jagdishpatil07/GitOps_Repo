@@ -11,7 +11,7 @@ global:
 # ============================================================
 arrowflight:
   replicaCount: 1
-  image: revolutio.azurecr.io/revolutio/arrowflight:latest
+  image: revolutio.azurecr.io/revolutio_kubernetes/arrowflight:latest
   pvc:
     openbaoAppRole: openbao-approle-revolutio-app-pvc-1
     sharedCerts: shared-certs-pvc-1
