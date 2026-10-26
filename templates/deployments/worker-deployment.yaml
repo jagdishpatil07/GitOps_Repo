@@ -1,3 +1,20 @@
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-rclone-config
+  namespace: {{ .Values.namespace }}
+data:
+  rclone.conf: |
+    [minio]
+    type = s3
+    provider = Minio
+    env_auth = false
+    endpoint = http://minio-native.mini-app.svc.cluster.local:9000
+    region = us-east-1
+    acl = private
+    force_path_style = true
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -33,13 +50,23 @@ spec:
         fsGroup: 70070
 
       volumes:
+        # Shared mount point for the MinIO bucket
+        - name: media-shared
+          emptyDir: {}
+
+        - name: rclone-config
+          configMap:
+            name: minio-rclone-config
+
+        - name: fuse-device
+          hostPath:
+            path: /dev/fuse
+            type: CharDevice
+
+        # Preserve existing non-media PVCs
         - name: static-storage
           persistentVolumeClaim:
             claimName: {{ .Values.worker.pvc.static }}
-
-        - name: media-storage
-          persistentVolumeClaim:
-            claimName: {{ .Values.worker.pvc.media }}
 
         - name: platformconfig-storage
           persistentVolumeClaim:
@@ -77,9 +104,58 @@ spec:
             sizeLimit: 1000Mi
 
       containers:
+        # Mount the MinIO S3 bucket as a filesystem
+        - name: minio-mount
+          image: rclone/rclone:latest
+          imagePullPolicy: IfNotPresent
+
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: true
+
+          env:
+            - name: RCLONE_CONFIG_MINIO_ACCESS_KEY_ID
+              value: "YOUR_MINIO_ACCESS_KEY"
+
+            - name: RCLONE_CONFIG_MINIO_SECRET_ACCESS_KEY
+              value: "YOUR_MINIO_SECRET_KEY"
+
+          command:
+            - sh
+            - -c
+          args:
+            - |
+              set -eu
+              mkdir -p /shared/media
+              exec rclone mount minio:worker-media-pvc-test /shared/media \
+                --config=/config/rclone.conf \
+                --allow-other \
+                --uid=70070 \
+                --gid=70070 \
+                --umask=0002 \
+                --vfs-cache-mode=writes \
+                --dir-cache-time=30s \
+                --log-level=INFO
+
+          volumeMounts:
+            - name: media-shared
+              mountPath: /shared
+              mountPropagation: Bidirectional
+
+            - name: rclone-config
+              mountPath: /config
+              readOnly: true
+
+            - name: fuse-device
+              mountPath: /dev/fuse
+
+        # Existing worker
         - name: rqworker
           image: {{ .Values.worker.image }}
           imagePullPolicy: Always
+
           args:
             - /rqworker/start
 
@@ -153,15 +229,13 @@ spec:
             - name: DATABASE_URL
               value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
 
-            # MinIO test credentials
-            # Replace these values with the credentials configured in MinIO.
+            # MinIO/S3 settings
             - name: AWS_ACCESS_KEY_ID
               value: "YOUR_MINIO_ACCESS_KEY"
 
             - name: AWS_SECRET_ACCESS_KEY
               value: "YOUR_MINIO_SECRET_KEY"
 
-            # MinIO S3 endpoint and media bucket
             - name: AWS_S3_ENDPOINT_URL
               value: "http://minio-native.mini-app.svc.cluster.local:9000"
 
@@ -208,8 +282,10 @@ spec:
             - name: computation-storage
               mountPath: /opt/revolutio/Computation_Temp_Storage
 
-            - name: media-storage
+            # Replaces the NFS media PVC mount
+            - name: media-shared
               mountPath: /opt/revolutio/Core/media
+              mountPropagation: HostToContainer
 
             - name: openbao-approle-shared
               mountPath: /openbao-approle
