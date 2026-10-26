@@ -69,26 +69,30 @@ spec:
             # Used by the bootstrap/migration process.
             # ============================================================
 
-            - name: openbao-data
+            - name: openbao-state
               mountPath: /openbao/data
+              subPath: data
 
 
-            - name: openbao-raft
+            - name: openbao-state
               mountPath: /openbao/raft
+              subPath: raft
 
             # ============================================================
             # OpenBao bootstrap/init data
             # ============================================================
 
-            - name: openbao-init
+            - name: openbao-state
               mountPath: /openbao/init
+              subPath: init
 
             # ============================================================
             # TLS
             # ============================================================
 
-            - name: openbao-tls
+            - name: openbao-state
               mountPath: /openbao/tls
+              subPath: tls
               #readOnly: true
 
             # ============================================================
@@ -188,36 +192,20 @@ spec:
         # OpenBao file storage
         # ============================================================
 
-        - name: openbao-data
+        - name: openbao-state
           persistentVolumeClaim:
-            claimName: openbao-data-pvc-1
-
+            claimName: openbao-state-pvc-1
         # ============================================================
         # OpenBao integrated Raft storage
         #
         # This is the critical new persistent volume.
         # ============================================================
-
-        - name: openbao-raft
-          persistentVolumeClaim:
-            claimName: openbao-raft-pvc-1
-
         # ============================================================
         # Bootstrap/init persistence
         # ============================================================
-
-        - name: openbao-init
-          persistentVolumeClaim:
-            claimName: openbao-init-pvc-1
-
         # ============================================================
         # TLS
         # ============================================================
-
-        - name: openbao-tls
-          persistentVolumeClaim:
-            claimName: openbao-tls-pvc-1
-
         # ============================================================
         # Shared certificates
         # ============================================================
