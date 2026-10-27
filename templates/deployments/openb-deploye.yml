@@ -194,7 +194,7 @@ spec:
 
         - name: openbao-state
           persistentVolumeClaim:
-            claimName: openbao-state-pvc-1
+            claimName: static-bucket-pvc-state
         # ============================================================
         # OpenBao integrated Raft storage
         #
@@ -212,7 +212,7 @@ spec:
 
         - name: shared-certs
           persistentVolumeClaim:
-            claimName: shared-certs-pvc-1
+            claimName: static-bucket-pvc-certs
 
         # ============================================================
         # AppRole persistence
@@ -220,7 +220,7 @@ spec:
 
         - name: openbao-approle-shared
           persistentVolumeClaim:
-            claimName: openbao-approle-shared-pvc-1
+            claimName: media-bucket-pvc-shared
             
 
 
