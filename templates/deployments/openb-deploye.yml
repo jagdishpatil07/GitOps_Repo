@@ -1,59 +1,58 @@
 apiVersion: apps/v1
 kind: Deployment
- 
 metadata:
   name: openbao
   namespace: myapp
   labels:
     app: openbao
     component: secrets-management
- 
+
 spec:
   replicas: 1
- 
+
   revisionHistoryLimit: 5
- 
+
   selector:
     matchLabels:
       app: openbao
- 
+
   # Single OpenBao instance using persistent single-node Raft storage.
   strategy:
     type: Recreate
- 
+
   template:
     metadata:
       labels:
         app: openbao
         component: secrets-management
- 
+
     spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 60
       dnsPolicy: ClusterFirst
- 
+
       imagePullSecrets:
         - name: acr-secret
- 
+
       containers:
         - name: openbao
- 
+
           image: revolutio.azurecr.io/revolutio_kubernetes/openbao:latest
           imagePullPolicy: Always
- 
+
           env:
             - name: TZ
               value: "UTC"
- 
+
           ports:
             - name: api
               containerPort: 8200
               protocol: TCP
- 
+
             - name: cluster
               containerPort: 8201
               protocol: TCP
- 
+
           # Docker equivalent:
           # cap_add:
           #   - IPC_LOCK
@@ -61,90 +60,92 @@ spec:
             capabilities:
               add:
                 - IPC_LOCK
- 
+
           volumeMounts:
- 
+
             # ============================================================
             # OpenBao file storage
             #
             # Used by the bootstrap/migration process.
             # ============================================================
- 
+
             - name: openbao-state
               mountPath: /openbao/data
               subPath: data
- 
+
+
             - name: openbao-state
               mountPath: /openbao/raft
               subPath: raft
- 
+
             # ============================================================
             # OpenBao bootstrap/init data
             # ============================================================
- 
+
             - name: openbao-state
               mountPath: /openbao/init
               subPath: init
- 
+
             # ============================================================
             # TLS
             # ============================================================
- 
+
             - name: openbao-state
               mountPath: /openbao/tls
               subPath: tls
               #readOnly: true
- 
+
             # ============================================================
             # Shared certificates
             # ============================================================
- 
+
             - name: shared-certs
               mountPath: /shared-certs
- 
+
             # ============================================================
             # AppRole secret volumes
             # ============================================================
- 
+
             - name: openbao-approle-shared
               mountPath: /openbao/approle-secrets/
- 
+
+
           # ============================================================
           # Resources
           # ============================================================
- 
+
           resources:
             requests:
               cpu: "250m"
               memory: "256Mi"
- 
+
             limits:
               cpu: "1"
               memory: "512Mi"
- 
+
           # ============================================================
           # STARTUP PROBE
           #
           # Only verifies that OpenBao is listening.
           # ============================================================
- 
+
           startupProbe:
             tcpSocket:
               port: api
- 
+
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
             failureThreshold: 60
             successThreshold: 1
- 
+
           # ============================================================
           # READINESS PROBE
           #
           # OpenBao becomes Ready only after bootstrap is complete
           # and the server is unsealed.
           # ============================================================
- 
+
           readinessProbe:
             exec:
               command:
@@ -152,64 +153,75 @@ spec:
                 - -ec
                 - |
                   test -f /openbao/init/.bootstrap-complete
- 
+
                   export BAO_ADDR="https://127.0.0.1:8200"
                   export BAO_CACERT="/openbao/tls/tls.crt"
- 
+
                   bao status 2>/dev/null | grep -q '^Sealed[[:space:]]*false'
- 
+
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 10
             failureThreshold: 30
             successThreshold: 1
- 
+
           # ============================================================
           # LIVENESS PROBE
           #
           # Only verifies that the OpenBao server is listening.
           # It does not depend on bootstrap/unseal state.
           # ============================================================
- 
+
           livenessProbe:
             tcpSocket:
               port: api
- 
+
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 6
             successThreshold: 1
- 
+
       # ================================================================
       # VOLUMES
       # ================================================================
- 
+
       volumes:
- 
+
         # ============================================================
-        # OpenBao file + integrated Raft + bootstrap/init + TLS storage
-        # MinIO bucket "openbao-state" (was NFS PVC openbao-state-pvc-1)
+        # OpenBao file storage
         # ============================================================
- 
+
         - name: openbao-state
           persistentVolumeClaim:
-            claimName: openbao-state-bucket-pvc
- 
+            claimName: openbao-state-pvc-1
+        # ============================================================
+        # OpenBao integrated Raft storage
+        #
+        # This is the critical new persistent volume.
+        # ============================================================
+        # ============================================================
+        # Bootstrap/init persistence
+        # ============================================================
+        # ============================================================
+        # TLS
+        # ============================================================
         # ============================================================
         # Shared certificates
-        # MinIO bucket "openbao-shared-certs" (was NFS PVC shared-certs-pvc-1)
         # ============================================================
- 
+
         - name: shared-certs
           persistentVolumeClaim:
-            claimName: openbao-shared-certs-bucket-pvc
- 
+            claimName: shared-certs-pvc-1
+
         # ============================================================
         # AppRole persistence
-        # MinIO bucket "openbao-approle" (was NFS PVC openbao-approle-shared-pvc-1)
         # ============================================================
- 
+
         - name: openbao-approle-shared
           persistentVolumeClaim:
-            claimName: openbao-approle-bucket-pvc
+            claimName: openbao-approle-shared-pvc-1
+            
+
+
+ 
