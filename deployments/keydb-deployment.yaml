@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: keydb
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: keydb
+
+spec:
+  replicas: {{ .Values.keydb.replicaCount }}
+
+  selector:
+    matchLabels:
+      service: keydb
+
+  strategy:
+    type: RollingUpdate
+
+  revisionHistoryLimit: 10
+
+  progressDeadlineSeconds: 600
+
+  template:
+    metadata:
+      labels:
+        service: keydb
+
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecrets.name }}
+
+      securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
+        fsGroup: 70070
+
+      volumes:
+        - name: keydb-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.keydb.pvc.data }}
+
+        - name: openbao-approle-shared
+          persistentVolumeClaim:
+            claimName: openbao-approle-shared-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: {{ .Values.keydb.pvc.sharedCerts }}
+
+      containers:
+        - name: keydb
+
+          image: {{ .Values.keydb.image }}
+          imagePullPolicy: Always
+
+          # Keep image ENTRYPOINT.
+          # Docker Compose command is passed through args.
+          args:
+            - tini
+            - --
+            - docker-entrypoint.sh
+            - keydb-server
+            - --server-threads
+            - "1"
+            - --maxmemory
+            - 512mb
+            - --maxmemory-policy
+            - allkeys-lru
+
+          env:
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "keydb"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_SECRET_PATH
+              value: "cache/keydb"
+
+            - name: TZ
+              value: "UTC"
+
+          volumeMounts:
+            - name: keydb-data
+              mountPath: /data
+
+            - name: openbao-approle-shared
+              mountPath: /openbao-approle
+              subPath: keydb
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+          resources:
+            requests:
+              cpu: {{ .Values.keydb.resources.requests.cpu | quote }}
+              memory: {{ .Values.keydb.resources.requests.memory | quote }}
+
+            limits:
+              cpu: {{ .Values.keydb.resources.limits.cpu | quote }}
+              memory: {{ .Values.keydb.resources.limits.memory | quote }}
+
+          readinessProbe:
+            exec:
+              command:
+                - keydb-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 30
+            failureThreshold: 50
+
+          livenessProbe:
+            exec:
+              command:
+                - keydb-cli
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 30
+            failureThreshold: 5
+
+      restartPolicy: Always
+
+      terminationGracePeriodSeconds: 3
+
+      dnsPolicy: ClusterFirst

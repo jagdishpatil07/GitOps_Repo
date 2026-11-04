@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: kong
+  namespace: myapp
+  labels:
+    app: kong
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: kong
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+
+  template:
+    metadata:
+      labels:
+        app: kong
+
+    spec:
+      restartPolicy: Always
+
+      imagePullSecrets:
+        - name: acr-secret
+
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: kong
+
+          image: revolutio.azurecr.io/revolutio_kubernetes/kong:latest
+          imagePullPolicy: Always
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
+          ports:
+            - name: admin
+              containerPort: 8001
+
+            - name: proxy
+              containerPort: 8002
+
+            - name: status
+              containerPort: 8100
+
+          env:
+            - name: KONG_ADMIN_LISTEN
+              value: "0.0.0.0:8001"
+
+            - name: KONG_DATABASE
+              value: "off"
+
+            - name: KONG_DECLARATIVE_CONFIG
+              value: "/etc/kong/kong.yml"
+
+            - name: KONG_LOG_LEVEL
+              value: "debug"
+
+            - name: KONG_LUA_PACKAGE_PATH
+              value: "/custom-plugins/?.lua;/custom-plugins/?/init.lua;/custom-plugins/kong/?.lua;/custom-plugins/kong/?/init.lua;;"
+
+            - name: KONG_NGINX_HTTP_LUA_SHARED_DICT
+              value: "rate_limit_store 10m"
+
+            - name: KONG_NGINX_MAIN_ENV
+              value: "REDIS_PASSWORD"
+
+            - name: KONG_PLUGINS
+              value: "bundled,user-rate-limit,prometheus"
+
+            - name: KONG_PROXY_LISTEN
+              value: "0.0.0.0:8002"
+
+            - name: KONG_ADMIN_LISTEN
+              value: "0.0.0.0:8001"
+
+            - name: KONG_STATUS_LISTEN
+              value: "0.0.0.0:8100"
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "kong"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: "REDIS_PASSWORD=cache/redis"
+
+          envFrom:
+            - configMapRef:
+                name: envs-production-web
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+
+          startupProbe:
+            tcpSocket:
+              port: 8100
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+
+          readinessProbe:
+            tcpSocket:
+              port: 8100
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            tcpSocket:
+              port: 8100
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          volumeMounts:
+            - name: openbao-approle-shared
+              mountPath: /openbao-approle
+              subPath: kong
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+      volumes:
+        - name: openbao-approle-shared
+          persistentVolumeClaim:
+            claimName: openbao-approle-shared-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1

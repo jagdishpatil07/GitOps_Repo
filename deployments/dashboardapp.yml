@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboardapp
+  namespace: myapp
+  labels:
+    app: dashboardapp
+
+spec:
+  replicas: 1
+
+  revisionHistoryLimit: 5
+
+  selector:
+    matchLabels:
+      app: dashboardapp
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  template:
+    metadata:
+      labels:
+        app: dashboardapp
+
+    spec:
+      imagePullSecrets:
+        - name: acr-secret
+
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: dashboardapp
+          image: revolutio.azurecr.io/revolutio_kubernetes/dashboard:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 3002
+              protocol: TCP
+
+          env:
+            - name: NODE_ENV
+              value: "production"
+
+            - name: CHOKIDAR_USEPOLLING
+              value: "true"
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      restartPolicy: Always
