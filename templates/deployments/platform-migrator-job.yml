@@ -1,0 +1,130 @@
+# Applies pending platform migrations on every Argo CD sync: after wave 0 (openbao, postgres-core, redis) is
+# healthy, before web and rabbitmq (wave 2). Docker calls go through kubectl: infra/platform-migrations/README.md.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: platform-migrator
+  namespace: myapp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: platform-migrator
+  namespace: myapp
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get"]
+  # Exec into openbao is OpenBao admin: this Role is as sensitive as the docker socket it replaces.
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: platform-migrator
+  namespace: myapp
+subjects:
+  - kind: ServiceAccount
+    name: platform-migrator
+    namespace: myapp
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: platform-migrator
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: platform-migrator
+  namespace: myapp
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: platform-migrator
+    spec:
+      restartPolicy: Never
+      serviceAccountName: platform-migrator
+      automountServiceAccountToken: true
+      # NFS skips fsGroup's chown; it only adds the group, so the export dir must be group-writable by it.
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 1000860000
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+        - name: acr-secret
+      containers:
+        - name: platform-migrator
+          image: revolutio.azurecr.io/revolutio_kubernetes/platform-migrator:v0052.1
+          imagePullPolicy: Always
+          args: ["apply"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PATH
+              value: "/platform-migrations/k8s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            - name: PM_DOCKER
+              value: "1"
+            - name: HOME
+              value: "/tmp"
+            - name: TZ
+              value: "UTC"
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+            - name: OPENBAO_ROLE_ID
+              value: "platform-migrator"
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/platform-migrator/secret_id"
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: envs-production-postgres-core
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: envs-production-postgres-core
+                  key: POSTGRES_USER
+          volumeMounts:
+            - name: platform-migrator-state
+              mountPath: /state
+            - name: tmp
+              mountPath: /tmp
+            # No subPath: kubelet would create a missing platform-migrator/ as root, and 0004 writes it as openbao.
+            - name: openbao-approle
+              mountPath: /openbao-approle
+              readOnly: true
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+      volumes:
+        - name: platform-migrator-state
+          persistentVolumeClaim:
+            claimName: platform-migrator-state-pvc
+        - name: tmp
+          emptyDir: {}
+        - name: openbao-approle
+          persistentVolumeClaim:
+            claimName: openbao-approle-shared-pvc-1
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1

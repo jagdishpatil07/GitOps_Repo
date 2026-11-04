@@ -1,0 +1,169 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: datahub-api
+  namespace: myapp
+  labels:
+    app: datahub-api
+
+spec:
+  replicas: 1
+
+  revisionHistoryLimit: 5
+
+  selector:
+    matchLabels:
+      app: datahub-api
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  template:
+    metadata:
+      labels:
+        app: datahub-api
+
+    spec:
+      imagePullSecrets:
+        - name: acr-secret
+
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: datahub-api
+
+          image: revolutio.azurecr.io/revolutio_kubernetes/datahub-api:latest
+          imagePullPolicy: Always
+
+          args:
+            - bash
+            - -c
+            - |
+              uvicorn app.main:app \
+                --host 0.0.0.0 \
+                --port 5003 \
+                --workers 1
+
+          ports:
+            - name: http
+              containerPort: 5003
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: envs-production-web
+
+          env:
+            - name: TZ
+              value: "UTC"
+
+            # Prevent K8S redis service env collision
+            - name: REDIS_HOST
+              value: "redis"
+
+            - name: REDIS_PORT
+              value: "6379"
+
+            # OpenBao
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "datahub-api"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,POSTGRES_PASSWORD=postgres-core/platform_app,RABBITMQ_PASSWORD=rabbitmq/admin,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key"
+
+            - name: OPENBAO_URL_TEMPLATES
+              value: "RABBITMQ_URL=amqp://guest:$${RABBITMQ_PASSWORD}@rabbitmq:5672/,REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0"
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+
+          volumeMounts:
+            - name: openbao-approle-shared
+              mountPath: /openbao-approle
+              subPath: datahub-api
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+            - name: platform-configs
+              mountPath: /app/Platform_Configs
+
+            - name: platform-data
+              mountPath: /app/Platform_Data
+
+            - name: media
+              mountPath: /media
+
+            - name: assets
+              mountPath: /assets
+
+          startupProbe:
+            tcpSocket:
+              port: 5003
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+
+          readinessProbe:
+            tcpSocket:
+              port: 5003
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            tcpSocket:
+              port: 5003
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      restartPolicy: Always
+
+      volumes:
+        - name: openbao-approle-shared
+          persistentVolumeClaim:
+            claimName: openbao-approle-shared-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
+
+        - name: platform-configs
+          persistentVolumeClaim:
+            claimName: platform-configs-pvc-1
+
+        - name: platform-data
+          persistentVolumeClaim:
+            claimName: platform-data-pvc-1
+
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-pvc-1
+
+        - name: assets
+          persistentVolumeClaim:
+            claimName: assets-pvc-1

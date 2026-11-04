@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: couchdb
+  namespace: myapp
+  labels:
+    app: couchdb
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: couchdb
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
+  template:
+    metadata:
+      labels:
+        app: couchdb
+
+    spec:
+
+      imagePullSecrets:
+        - name: acr-secret
+
+      containers:
+        - name: couchdb
+          image: revolutio.azurecr.io/revolutio_kubernetes/couchdb:latest
+          imagePullPolicy: Always
+
+
+
+          ports:
+            - name: couchdb
+              containerPort: 5984
+              protocol: TCP
+
+          env:
+            - name: TZ
+              value: "UTC"
+
+            - name: COUCHDB_USER
+              value: "couchdb"
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "couchdb"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: "COUCHDB_PASSWORD=couchdb/admin"
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+
+          startupProbe:
+            tcpSocket:
+              port: 5984
+            failureThreshold: 30
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /_up
+              port: 5984
+              scheme: HTTP
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /_up
+              port: 5984
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+
+          volumeMounts:
+            - name: couchdb-storage
+              mountPath: /opt/couchdb/data
+
+            - name: openbao-approle-shared
+              mountPath: /openbao-approle
+              subPath: couchdb
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
+
+      volumes:
+        - name: couchdb-storage
+          persistentVolumeClaim:
+            claimName: couchdb-pvc-1
+
+        - name: openbao-approle-shared
+          persistentVolumeClaim:
+            claimName: openbao-approle-shared-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
