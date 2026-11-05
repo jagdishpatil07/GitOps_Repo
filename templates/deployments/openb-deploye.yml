@@ -37,7 +37,7 @@ spec:
       containers:
         - name: openbao
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/openbao:latest
+          image: revolutio.azurecr.io/revolutio_kubernetes/openbao:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           env:
