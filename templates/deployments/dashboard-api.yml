@@ -62,7 +62,7 @@ spec:
           # starts /start.sh.
           # ==========================================================
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/dashboard-api:latest
+          image: revolutio.azurecr.io/revolutio_kubernetes/dashboard-api:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           ports:
