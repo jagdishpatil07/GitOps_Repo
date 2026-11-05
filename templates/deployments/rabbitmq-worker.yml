@@ -36,7 +36,7 @@ spec:
       containers:
         - name: rabbitmq-worker
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/datahub-api:latest
+          image: revolutio.azurecr.io/revolutio_kubernetes/datahub-api:bodstable-2026.10.3
           imagePullPolicy: Always
 
           # IMPORTANT:
