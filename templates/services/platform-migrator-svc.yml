@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-migrator
+  namespace: myapp
+  labels:
+    app: platform-migrator
+spec:
+  type: ClusterIP
+  selector:
+    app: platform-migrator
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
