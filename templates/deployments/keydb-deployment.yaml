@@ -51,7 +51,7 @@ spec:
       containers:
         - name: keydb
 
-          image: {{ .Values.keydb.image }}
+          image: revolutio.azurecr.io/revolutio_kubernetes/keydb:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           # Keep image ENTRYPOINT.
