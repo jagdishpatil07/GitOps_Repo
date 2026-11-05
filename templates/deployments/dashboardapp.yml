@@ -34,7 +34,7 @@ spec:
 
       containers:
         - name: dashboardapp
-          image: revolutio.azurecr.io/revolutio_kubernetes/dashboard:latest
+          image: revolutio.azurecr.io/revolutio_kubernetes/dashboard:stable-2026.10.3
           imagePullPolicy: Always
 
           ports:
