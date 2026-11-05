@@ -61,7 +61,7 @@ spec:
       automountServiceAccountToken: true
       # NFS skips fsGroup's chown; it only adds the group, so the export dir must be group-writable by it.
       securityContext:
-        runAsNonRoot: true
+        #runAsNonRoot: true
         fsGroup: 1000860000
         seccompProfile:
           type: RuntimeDefault
