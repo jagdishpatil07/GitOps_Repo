@@ -19,7 +19,7 @@ spec:
       containers:
       - name: datahubapp
 
-        image: revolutio.azurecr.io/revolutio_kubernetes/datahub:latest
+        image: revolutio.azurecr.io/revolutio_kubernetes/datahub:bod-stable-2026.10.3
 
         imagePullPolicy: Always
 
