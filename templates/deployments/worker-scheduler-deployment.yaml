@@ -92,7 +92,7 @@ spec:
 
         - name: worker-scheduler
 
-          image: {{ .Values.workerScheduler.image }}
+          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           args:
