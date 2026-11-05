@@ -137,14 +137,20 @@ spec:
               value: "/openbao-certs/tls.crt"
 
             - name: OPENBAO_ROLE_ID
-              value: "revolutio-worker"
+              value: "revolutio-app"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/revolutio-worker/secret_id"
+              value: "/openbao-approle/secret_id"
 
             - name: OPENBAO_SECRETS
               value: >-
-                SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,DJANGO_SUPERUSER_PASSWORD=django/superuser_password,REDIS_PASSWORD=cache/redis,KEYDB_PASSWORD=cache/keydb,POSTGRES_PASSWORD=postgres-core/platform_app,KEYCLOAK_WEB_CLIENT_SECRET=keycloak/web_client_secret,RETRACE_INTERNAL_TOKEN=retrace/internal_token,RETRACE_CAPTURE_TOKEN=retrace/capture_token,LICENSING_INSTALLATION_ID=licensing/installation_id,LICENSING_INSTALLATION_PRIVATE_KEY=licensing/installation_private_key,LICENSING_INSTALLATION_PUBLIC_KEY=licensing/installation_public_keyfimage
+                SECRET_KEY=django/secret_key,
+                FERNET_SECRET=django/fernet_secret,
+                DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,
+                DJANGO_SUPERUSER_PASSWORD=django/superuser_password,
+                REDIS_PASSWORD=cache/redis,
+                KEYDB_PASSWORD=cache/keydb,
+                POSTGRES_PASSWORD=postgres-core/platform_app
 
             - name: OPENBAO_URL_TEMPLATES
               value: >-
@@ -190,7 +196,7 @@ spec:
 
             - name: openbao-approle-shared
               mountPath: /openbao-approle
-              subPath: revolutio-worker
+              subPath: revolutio-app
               readOnly: true
 
             - name: shared-certs
