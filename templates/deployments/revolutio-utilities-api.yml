@@ -1,0 +1,194 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: revolutio-utilities-api
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    service: revolutio-utilities-api
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      service: revolutio-utilities-api
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
+  template:
+    metadata:
+      labels:
+        service: revolutio-utilities-api
+
+    spec:
+      restartPolicy: Always
+
+      imagePullSecrets:
+        - name: registry-cred
+
+      terminationGracePeriodSeconds: 30
+
+      securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
+        fsGroup: 70070
+
+      volumes:
+
+        - name: platformconfig-storage
+          persistentVolumeClaim:
+            claimName: platform-configs-pvc-1
+
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-pvc-1
+
+        - name: assets-storage
+          persistentVolumeClaim:
+            claimName: assets-pvc-1
+
+        - name: openbao-approle-shared
+          persistentVolumeClaim:
+            claimName: openbao-approle-shared-pvc-1
+
+        - name: shared-certs
+          persistentVolumeClaim:
+            claimName: shared-certs-pvc-1
+
+      containers:
+
+        - name: revolutio-utilities-api
+
+          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio_utilities-api:bod-stable-2026.10.3
+          imagePullPolicy: Always
+
+          args:
+            - bash
+            - -c
+            - uvicorn app.main:app --host 0.0.0.0 --port 8004
+
+          ports:
+            - name: http
+              containerPort: 8004
+              protocol: TCP
+
+            - name: grpc
+              containerPort: 50052
+              protocol: TCP
+
+          env:
+
+            - name: TZ
+              value: "UTC"
+
+            - name: GRPC_PORT
+              value: "50052"
+
+            - name: INTERNAL_GRPC_TARGET
+              value: "internal-grpc:50051"
+
+            - name: KAFKA_CONNECT_URL
+              value: "http://connect:8083"
+
+            - name: RABBITMQ_URL
+              value: "amqp://guest:guest@rabbitmq:5672/"
+
+            - name: OPENBAO_ADDR
+              value: "https://openbao:8200"
+
+            - name: OPENBAO_CACERT
+              value: "/openbao-certs/tls.crt"
+
+            - name: OPENBAO_ROLE_ID
+              value: "rls-api"
+
+            - name: OPENBAO_SECRET_ID_FILE
+              value: "/openbao-approle/secret_id"
+
+            - name: OPENBAO_SECRETS
+              value: >-
+                SECRET_KEY=django/secret_key,
+                FERNET_SECRET=django/fernet_secret,
+                POSTGRES_PASSWORD=postgres-core/platform_app,
+                REDIS_PASSWORD=cache/redis
+
+            - name: OPENBAO_URL_TEMPLATES
+              value: >-
+                REDIS_URL=redis://:$${REDIS_PASSWORD}@redis:6379/0
+
+          envFrom:
+            - configMapRef:
+                name: envs-production-web
+
+            - configMapRef:
+                name: envs-production-postgres-core
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+
+          startupProbe:
+            tcpSocket:
+              port: 8004
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+
+          readinessProbe:
+            tcpSocket:
+              port: 8004
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            tcpSocket:
+              port: 8004
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+
+          securityContext:
+            runAsUser: 70070
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+
+            - name: platformconfig-storage
+              mountPath: /app/Platform_Configs
+
+            - name: media-storage
+              mountPath: /media
+
+            - name: assets-storage
+              mountPath: /assets
+
+            - name: openbao-approle-shared
+              mountPath: /openbao-approle
+              subPath: rls-api
+              readOnly: true
+
+            - name: shared-certs
+              mountPath: /openbao-certs
+              readOnly: true
