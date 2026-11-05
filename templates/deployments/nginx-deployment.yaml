@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx
-  namespace: {{ .Values.global.namespace }}
+  namespace: myapp
   labels:
     service: nginx
 
@@ -19,9 +19,6 @@ spec:
       maxUnavailable: 0
       maxSurge: 1
 
-  revisionHistoryLimit: 10
-  progressDeadlineSeconds: 600
-
   template:
     metadata:
       labels:
@@ -30,22 +27,17 @@ spec:
     spec:
       restartPolicy: Always
 
-      serviceAccountName: {{ .Values.global.serviceAccountName }}
-
       imagePullSecrets:
-        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+        - name: acr-secret
 
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
-        fsGroup: 70070
-
-      terminationGracePeriodSeconds: 30
+        fsGroup: 1000860000
 
       containers:
         - name: nginx
-
-          image: "{{ .Values.nginx.image }}"
+          image: revolutio.azurecr.io/revolutio_kubernetes/nginx:latest
           imagePullPolicy: Always
 
           securityContext:
@@ -63,11 +55,9 @@ spec:
           ports:
             - name: http
               containerPort: 8080
-              protocol: TCP
 
             - name: https
               containerPort: 443
-              protocol: TCP
 
           env:
             - name: SERVER_NAME
@@ -81,7 +71,7 @@ spec:
               subPath: nginx.conf
               readOnly: true
 
-            # Rules file
+            # Rules
             - name: nginx-config
               mountPath: /etc/nginx/conf.d/blockuseragents.rules
               subPath: blockuseragents.rules
@@ -93,29 +83,25 @@ spec:
               subPath: mime.types
               readOnly: true
 
-            # SSL certificates
+            # SSL
             - name: nginx-ssl
               mountPath: /etc/ssl/revolutio
               subPath: ssl
               readOnly: true
 
-            # Static files
+            # Static
             - name: static-storage
               mountPath: /var/www/revolutio/static
 
-            # Media files
+            # Media
             - name: media-storage
               mountPath: /var/www/revolutio/media
 
-            # Assets
-            - name: assets-storage
-              mountPath: /var/www/asset
-
-            # NGINX cache
+            # Cache
             - name: nginx-cache
               mountPath: /var/cache/nginx
 
-            # Runtime files
+            # Runtime
             - name: nginx-run
               mountPath: /run
 
@@ -126,7 +112,6 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-
             limits:
               cpu: "1"
               memory: 512Mi
@@ -135,7 +120,6 @@ spec:
             httpGet:
               path: /healthy
               port: 8080
-              scheme: HTTP
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
@@ -145,7 +129,6 @@ spec:
             httpGet:
               path: /healthy
               port: 8080
-              scheme: HTTP
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
@@ -155,7 +138,6 @@ spec:
             httpGet:
               path: /healthy
               port: 8080
-              scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 5
@@ -166,23 +148,18 @@ spec:
         - name: nginx-config
           configMap:
             name: nginx-config
-            defaultMode: 0644
 
         - name: nginx-ssl
           persistentVolumeClaim:
-            claimName: nginx-conf-pvc
+            claimName: nginx-conf-pvc-1
 
         - name: static-storage
           persistentVolumeClaim:
-            claimName: static-pvc
+            claimName: static-pvc-1
 
         - name: media-storage
           persistentVolumeClaim:
-            claimName: media-pvc
-
-        - name: assets-storage
-          persistentVolumeClaim:
-            claimName: assets-pvc
+            claimName: media-pvc-1
 
         - name: nginx-cache
           emptyDir:
