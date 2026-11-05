@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: zookeeper
-        image: revolutio.azurecr.io/revolutio_kubernetes/zookeeper:latest
+        image: revolutio.azurecr.io/revolutio_kubernetes/zookeeper:bod-stable-2026.10.3
         imagePullPolicy: Always
 
         ports:
