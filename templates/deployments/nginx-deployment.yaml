@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx
-  namespace: myapp
+  namespace: {{ .Values.global.namespace }}
   labels:
     service: nginx
 
@@ -20,7 +20,6 @@ spec:
       maxSurge: 1
 
   revisionHistoryLimit: 10
-
   progressDeadlineSeconds: 600
 
   template:
@@ -31,22 +30,22 @@ spec:
     spec:
       restartPolicy: Always
 
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+
       imagePullSecrets:
-        - name: acr-secret
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
 
       securityContext:
         runAsUser: 70070
         runAsNonRoot: true
-        fsGroup: 1000860000
-        fsGroupChangePolicy: OnRootMismatch
+        fsGroup: 70070
 
       terminationGracePeriodSeconds: 30
 
       containers:
         - name: nginx
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/nginx:latest
-
+          image: "{{ .Values.nginx.image }}"
           imagePullPolicy: Always
 
           securityContext:
@@ -76,72 +75,50 @@ spec:
 
           volumeMounts:
 
-            # =================================================
-            # NGINX CONFIGURATION
-            #
-            # ConfigMap contains:
-            #   default.conf
-            #   blockuseragents.rules
-            #
-            # Image continues to provide:
-            #   /etc/nginx/nginx.conf
-            #   /etc/nginx/mime.types
-            # =================================================
+            # Main nginx.conf
             - name: nginx-config
-              mountPath: /etc/nginx/conf.d
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
               readOnly: true
 
-            # =================================================
-            # SSL
-            #
-            # Existing PVC:
-            # nginx-conf-pvc-1
-            #
-            # Existing PVC structure:
-            # ssl/
-            # ├── ssl.crt
-            # └── ssl.key
-            #
-            # Container:
-            # /etc/ssl/revolutio/
-            # =================================================
+            # Rules file
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/blockuseragents.rules
+              subPath: blockuseragents.rules
+              readOnly: true
+
+            # Mime types
+            - name: nginx-config
+              mountPath: /etc/nginx/mime.types
+              subPath: mime.types
+              readOnly: true
+
+            # SSL certificates
             - name: nginx-ssl
               mountPath: /etc/ssl/revolutio
               subPath: ssl
               readOnly: true
 
-            # =================================================
-            # STATIC
-            # =================================================
+            # Static files
             - name: static-storage
               mountPath: /var/www/revolutio/static
 
-            # =================================================
-            # MEDIA
-            # =================================================
+            # Media files
             - name: media-storage
               mountPath: /var/www/revolutio/media
 
-            # =================================================
-            # NGINX CACHE
-            #
-            # Docker equivalent:
-            # /var/cache/nginx tmpfs
-            # =================================================
+            # Assets
+            - name: assets-storage
+              mountPath: /var/www/asset
+
+            # NGINX cache
             - name: nginx-cache
               mountPath: /var/cache/nginx
 
-            # =================================================
-            # NGINX RUNTIME
-            #
-            # Docker equivalent:
-            # /run tmpfs
-            # =================================================
+            # Runtime files
             - name: nginx-run
               mountPath: /run
 
-            # nginx.conf contains:
-            # pid /var/run/nginx.pid;
             - name: nginx-run
               mountPath: /var/run
 
@@ -154,112 +131,64 @@ spec:
               cpu: "1"
               memory: 512Mi
 
-          # ===================================================
-          # STARTUP PROBE
-          # ===================================================
           startupProbe:
             httpGet:
               path: /healthy
               port: 8080
               scheme: HTTP
-
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 30
-            successThreshold: 1
 
-          # ===================================================
-          # READINESS PROBE
-          # ===================================================
           readinessProbe:
             httpGet:
               path: /healthy
               port: 8080
               scheme: HTTP
-
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
-            successThreshold: 1
 
-          # ===================================================
-          # LIVENESS PROBE
-          # ===================================================
           livenessProbe:
             httpGet:
               path: /healthy
               port: 8080
               scheme: HTTP
-
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 5
-            successThreshold: 1
-
-          terminationMessagePath: /dev/termination-log
-
-          terminationMessagePolicy: File
 
       volumes:
 
-        # =====================================================
-        # NGINX CONFIG
-        #
-        # Contains:
-        #   default.conf
-        #   blockuseragents.rules
-        #
-        # Mounted directly over /etc/nginx/conf.d
-        # because the image's conf.d is not writable by UID 70070.
-        # =====================================================
         - name: nginx-config
           configMap:
             name: nginx-config
             defaultMode: 0644
 
-        # =====================================================
-        # SSL PVC
-        #
-        # nginx-conf-pvc-1/ssl/
-        # =====================================================
         - name: nginx-ssl
           persistentVolumeClaim:
-            claimName: nginx-conf-pvc-1
+            claimName: nginx-conf-pvc
 
-        # =====================================================
-        # STATIC PVC
-        # =====================================================
         - name: static-storage
           persistentVolumeClaim:
-            claimName: static-pvc-1
+            claimName: static-pvc
 
-        # =====================================================
-        # MEDIA PVC
-        # =====================================================
         - name: media-storage
           persistentVolumeClaim:
-            claimName: media-pvc-1
+            claimName: media-pvc
 
-        # =====================================================
-        # NGINX CACHE
-        #
-        # Docker:
-        # tmpfs /var/cache/nginx
-        # =====================================================
+        - name: assets-storage
+          persistentVolumeClaim:
+            claimName: assets-pvc
+
         - name: nginx-cache
           emptyDir:
             medium: Memory
             sizeLimit: 100Mi
 
-        # =====================================================
-        # NGINX RUN
-        #
-        # Docker:
-        # tmpfs /run
-        # =====================================================
         - name: nginx-run
           emptyDir:
             medium: Memory
