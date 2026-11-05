@@ -38,7 +38,7 @@ spec:
       containers:
         - name: kong
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/kong:latest
+          image: revolutio.azurecr.io/revolutio_kubernetes/kong:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           securityContext:
