@@ -24,7 +24,7 @@ spec:
       containers:
         - name: pgbouncer
 
-          image: {{ .Values.pgbouncer.image }}
+          image: revolutio.azurecr.io/revolutio_kubernetes/pgbouncer:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           ports:
