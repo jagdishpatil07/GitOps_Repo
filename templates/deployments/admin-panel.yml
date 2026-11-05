@@ -47,8 +47,10 @@ spec:
           image: revolutio.azurecr.io/revolutio_kubernetes/admin-panel:bod-stable-2026.10.3
           imagePullPolicy: Always
 
-          stdin: true
-          tty: true
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
 
           env:
             - name: NODE_ENV
@@ -66,10 +68,32 @@ spec:
               cpu: "1"
               memory: "2Gi"
 
+          startupProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 10
+            failureThreshold: 30
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 20
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 20
+            failureThreshold: 5
+
           securityContext:
             runAsUser: 70070
             runAsNonRoot: true
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
 
             capabilities:
               drop:
@@ -79,6 +103,34 @@ spec:
             - name: node-modules
               mountPath: /apps/web/frontend/admin_panel/node_modules
 
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+
+            - name: nginx-run
+              mountPath: /run
+
+            - name: nginx-run
+              mountPath: /var/run
+
+            - name: tmp
+              mountPath: /tmp
+
       volumes:
+
         - name: node-modules
           emptyDir: {}
+
+        - name: nginx-cache
+          emptyDir:
+            medium: Memory
+            sizeLimit: 100Mi
+
+        - name: nginx-run
+          emptyDir:
+            medium: Memory
+            sizeLimit: 10Mi
+
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 100Mi
