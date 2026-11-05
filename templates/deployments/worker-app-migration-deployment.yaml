@@ -140,7 +140,7 @@ spec:
               value: "revolutio-app"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/secret_id"
+              value: "/openbao-approle/revolutio-app/secret_id"
 
             - name: OPENBAO_SECRETS
               value: >-
