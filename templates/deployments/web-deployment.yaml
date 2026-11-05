@@ -208,12 +208,7 @@ spec:
 
             - name: OPENBAO_SECRETS
               value: >-
-                SECRET_KEY=django/secret_key,
-                FERNET_SECRET=django/fernet_secret,
-                DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,
-                REDIS_PASSWORD=cache/redis,
-                KEYDB_PASSWORD=cache/keydb,
-                POSTGRES_PASSWORD=postgres-core/platform_app
+                SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,DJANGO_SUPERUSER_PASSWORD=django/superuser_password,REDIS_PASSWORD=cache/redis,KEYDB_PASSWORD=cache/keydb,POSTGRES_PASSWORD=postgres-core/platform_app,RETRACE_REPLAY_TOKEN=retrace/replay_token,RETRACE_CONTROL_TOKEN=retrace/control_token,KEYCLOAK_WEB_CLIENT_SECRET=keycloak/web_client_secret,RELAY_SERVICE_TOKEN_PUBLIC_KEY=relay/signing_public_key,RETRACE_INTERNAL_TOKEN=retrace/internal_token,RETRACE_CAPTURE_TOKEN=retrace/capture_token,IDAM_MIGRATION_SECRET=idam/migration_secret,IDAM_INTERNAL_SECRET=idam/internal_secret,LICENSING_INSTALLATION_ID=licensing/installation_id,LICENSING_INSTALLATION_PRIVATE_KEY=licensing/installation_private_key,LICENSING_INSTALLATION_PUBLIC_KEY=licensing/installation_public_key,LICENSING_SERVICE_SECRET=licensing/service_secret,COUCHDB_PASSWORD=couchdb/admin
 
             # ==========================================================
             # EXACT Docker generated URL templates
