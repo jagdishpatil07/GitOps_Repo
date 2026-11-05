@@ -34,7 +34,7 @@ spec:
       restartPolicy: Always
 
       imagePullSecrets:
-        - name: registry-cred
+        - name: acr-secret
 
       terminationGracePeriodSeconds: 30
 
