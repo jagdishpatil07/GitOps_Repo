@@ -140,7 +140,7 @@ spec:
               value: "revolutio-worker"
 
             - name: OPENBAO_SECRET_ID_FILE
-              value: "/openbao-approle/secret_id"
+              value: "/openbao-approle/revolutio-worker/secret_id"
 
             - name: OPENBAO_SECRETS
               value: >-
