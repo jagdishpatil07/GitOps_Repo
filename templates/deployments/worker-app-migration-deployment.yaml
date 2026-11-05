@@ -190,7 +190,7 @@ spec:
 
             - name: openbao-approle-shared
               mountPath: /openbao-approle
-              subPath: revolutio-app
+              subPath: revolutio-worker
               readOnly: true
 
             - name: shared-certs
