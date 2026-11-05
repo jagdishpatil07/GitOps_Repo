@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: admin-panel
+  namespace: {{ .Values.namespace }}
+  labels:
+    service: admin-panel
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      service: admin-panel
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
+  template:
+    metadata:
+      labels:
+        service: admin-panel
+
+    spec:
+      restartPolicy: Always
+
+      imagePullSecrets:
+        - name: registry-cred
+
+      securityContext:
+        runAsUser: 70070
+        runAsNonRoot: true
+        fsGroup: 70070
+
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: admin-panel
+
+          image: revolutio.azurecr.io/revolutio_kubernetes/admin-panel:bod-stable-2026.10.3
+          imagePullPolicy: Always
+
+          stdin: true
+          tty: true
+
+          env:
+            - name: NODE_ENV
+              value: "production"
+
+            - name: CHOKIDAR_USEPOLLING
+              value: "true"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+
+          securityContext:
+            runAsUser: 70070
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: node-modules
+              mountPath: /apps/web/frontend/admin_panel/node_modules
+
+      volumes:
+        - name: node-modules
+          emptyDir: {}
