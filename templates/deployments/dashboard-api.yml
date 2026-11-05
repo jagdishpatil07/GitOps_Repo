@@ -125,7 +125,7 @@ spec:
             #
 
             - name: OPENBAO_SECRETS
-              value: "POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin,SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret"
+              value: "SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,POSTGRES_PASSWORD=postgres-core/platform_app,REDIS_PASSWORD=cache/redis,COUCHDB_PASSWORD=couchdb/admin,RETRACE_INTERNAL_TOKEN=retrace/internal_token,TENANCY_TOKEN=tenancy/caller_dashboardapi"
 
 
             # --------------------------------------------------------
