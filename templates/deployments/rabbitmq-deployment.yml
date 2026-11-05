@@ -39,7 +39,7 @@ spec:
       containers:
         - name: rabbitmq
 
-          image: revolutio.azurecr.io/revolutio_kubernetes/rabbitmq:latest
+          image: revolutio.azurecr.io/revolutio_kubernetes/rabbitmq:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           ports:
