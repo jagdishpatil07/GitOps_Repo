@@ -92,7 +92,7 @@ spec:
       containers:
         - name: rqworker
 
-          image: {{ .Values.workerAppMigration.image }}
+          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           securityContext:
@@ -144,13 +144,8 @@ spec:
 
             - name: OPENBAO_SECRETS
               value: >-
-                SECRET_KEY=django/secret_key,
-                FERNET_SECRET=django/fernet_secret,
-                DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,
-                DJANGO_SUPERUSER_PASSWORD=django/superuser_password,
-                REDIS_PASSWORD=cache/redis,
-                KEYDB_PASSWORD=cache/keydb,
-                POSTGRES_PASSWORD=postgres-core/platform_app
+                SECRET_KEY=django/secret_key,FERNET_SECRET=django/fernet_secret,DATABASE_CREDENTIAL_MASTER_KEY=django/database_credential_master_key,DJANGO_SUPERUSER_PASSWORD=django/superuser_password,REDIS_PASSWORD=cache/redis,KEYDB_PASSWORD=cache/keydb,POSTGRES_PASSWORD=postgres-core/platform_app,KEYCLOAK_WEB_CLIENT_SECRET=keycloak/web_client_secret,RETRACE_INTERNAL_TOKEN=retrace/internal_token,RETRACE_CAPTURE_TOKEN=retrace/capture_token,LICENSING_INSTALLATION_ID=licensing/installation_id,LICENSING_INSTALLATION_PRIVATE_KEY=licensing/installation_private_key,LICENSING_INSTALLATION_PUBLIC_KEY=licensing/installation_public_keyfimage
+                
 
             - name: OPENBAO_URL_TEMPLATES
               value: >-
