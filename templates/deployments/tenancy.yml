@@ -105,7 +105,7 @@ spec:
               value: "TENANCY_DB_PASSWORD=tenancy/db,TENANCY_TOKEN_IDAM=tenancy/caller_idam,TENANCY_TOKEN_DATAHUBAPI=tenancy/caller_datahubapi,TENANCY_TOKEN_DASHBOARDAPI=tenancy/caller_dashboardapi,TENANCY_TOKEN_VANTAGE=tenancy/caller_vantage,TENANCY_TOKEN_RELAY=tenancy/caller_relay,TENANCY_TOKEN_QUASAR=tenancy/caller_quasar"
 
             - name: OPENBAO_URL_TEMPLATES
-              value: "TENANCY_DSN=postgresql://tenancy_app:$${TENANCY_DB_PASSWORD}@postgres-core:5432/$${PLATFORM_DB_NAME}"
+              value: "TENANCY_DSN=postgresql://tenancy_app:$${TENANCY_DB_PASSWORD}@postgres-core:5432/Platform_DB"
 
           envFrom:
 
