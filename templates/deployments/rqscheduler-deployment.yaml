@@ -88,7 +88,7 @@ spec:
       containers:
         - name: rqscheduler
 
-          image: "{{ .Values.rqscheduler.image }}"
+          image: revolutio.azurecr.io/revolutio_kubernetes/rqscheduler:bod-stable-2026.10.3
 
           imagePullPolicy: Always
 
