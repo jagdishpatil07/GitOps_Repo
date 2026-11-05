@@ -92,7 +92,7 @@ spec:
 
         - name: worker-computation-1
 
-          image: {{ .Values.workerComputation1.image }}
+          image: revolutio.azurecr.io/revolutio_kubernetes/revolutio:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           args:
