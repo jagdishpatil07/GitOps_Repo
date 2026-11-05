@@ -50,17 +50,38 @@ spec:
           stdin: true
           tty: true
 
-          ports:
-            - name: http
-              containerPort: 3004
-              protocol: TCP
-
           env:
             - name: NODE_ENV
               value: "production"
 
             - name: CHOKIDAR_USEPOLLING
               value: "true"
+
+          securityContext:
+            runAsUser: 70070
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: node-modules
+              mountPath: /rls-app/node_modules
+
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+
+            - name: nginx-run
+              mountPath: /run
+
+            - name: nginx-run
+              mountPath: /var/run
+
+            - name: tmp
+              mountPath: /tmp
 
           resources:
             requests:
@@ -71,40 +92,21 @@ spec:
               cpu: "1"
               memory: "2Gi"
 
-          startupProbe:
-            tcpSocket:
-              port: 3004
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 30
-
-          readinessProbe:
-            tcpSocket:
-              port: 3004
-            periodSeconds: 20
-            timeoutSeconds: 5
-            failureThreshold: 3
-
-          livenessProbe:
-            tcpSocket:
-              port: 3004
-            periodSeconds: 20
-            timeoutSeconds: 5
-            failureThreshold: 5
-
-          securityContext:
-            runAsUser: 70070
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-
-            capabilities:
-              drop:
-                - ALL
-
-          volumeMounts:
-            - name: node-modules
-              mountPath: /rls-app/node_modules
-
       volumes:
         - name: node-modules
           emptyDir: {}
+
+        - name: nginx-cache
+          emptyDir:
+            medium: Memory
+            sizeLimit: 100Mi
+
+        - name: nginx-run
+          emptyDir:
+            medium: Memory
+            sizeLimit: 10Mi
+
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 100Mi
