@@ -47,7 +47,7 @@ spec:
       containers:
         - name: redis
 
-          image: {{ .Values.redis.image }}
+          image: revolutio.azurecr.io/revolutio_kubernetes/redis:bod-stable-2026.10.3
           imagePullPolicy: Always
 
           # Keep the image ENTRYPOINT.
